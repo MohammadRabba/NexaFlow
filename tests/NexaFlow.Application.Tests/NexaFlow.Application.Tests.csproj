@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NexaFlow.Application.Tests
+    Unit tests for Application layer (MediatR behaviors, validators).
+    Infrastructure is mocked or replaced with in-memory fakes where needed.
+    Section 34 forbids "every integration test depending on mocks" — but
+    Application-layer unit tests legitimately use lightweight fakes.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>NexaFlow.Application.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NexaFlow.Application\NexaFlow.Application.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="coverlet.collector" />
+    <!-- Required for BuildServiceProvider() extension in DI smoke tests -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <!-- LoggerFactory + ILogger<T> implementation for handler tests -->
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

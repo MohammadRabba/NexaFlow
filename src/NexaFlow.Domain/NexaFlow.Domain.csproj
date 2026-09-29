@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NexaFlow.Domain
+    The pure business model. NO infrastructure references (Rule 49):
+      - no EF Core
+      - no PostgreSQL driver
+      - no ASP.NET Core
+      - no Redis / RabbitMQ / SignalR / OpenTelemetry
+      - no HTTP / IO
+
+    Only System.* BCL is allowed.
+    References: none.
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>NexaFlow.Domain</RootNamespace>
+    <AssemblyName>NexaFlow.Domain</AssemblyName>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/NexaFlow.Api/NexaFlow.Api.csproj" />
+    <Project Path="src/NexaFlow.Application/NexaFlow.Application.csproj" />
+    <Project Path="src/NexaFlow.Domain/NexaFlow.Domain.csproj" />
+    <Project Path="src/NexaFlow.Infrastructure/NexaFlow.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/NexaFlow.Api.Tests/NexaFlow.Api.Tests.csproj" />
+    <Project Path="tests/NexaFlow.Application.Tests/NexaFlow.Application.Tests.csproj" />
+    <Project Path="tests/NexaFlow.Domain.Tests/NexaFlow.Domain.Tests.csproj" />
+    <Project Path="tests/NexaFlow.IntegrationTests/NexaFlow.IntegrationTests.csproj" />
+  </Folder>
+</Solution>

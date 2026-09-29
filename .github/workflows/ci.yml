@@ -1,0 +1,60 @@
+name: CI
+
+# Phase 1 skeleton. Phase 11 will add integration tests, security
+# scans, and a deploy step. See README.md.
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, format, test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'ga'
+
+      - name: Restore
+        run: dotnet restore NexaFlow.slnx --nologo
+
+      - name: Format check
+        run: dotnet format NexaFlow.slnx --verify-no-changes --no-restore --severity warn
+
+      - name: Build
+        run: dotnet build NexaFlow.slnx --no-restore --configuration Release --nologo
+
+      - name: Unit tests (Domain, Application, Api smoke)
+        run: |
+          dotnet test tests/NexaFlow.Domain.Tests/NexaFlow.Domain.Tests.csproj --no-build --nologo
+          dotnet test tests/NexaFlow.Application.Tests/NexaFlow.Application.Tests.csproj --no-build --nologo
+          dotnet test tests/NexaFlow.Api.Tests/NexaFlow.Api.Tests.csproj --no-build --nologo
+
+      # Integration tests will be enabled in Phase 3 once the cross-tenant
+      # isolation tests are written and Docker is available in CI.
+      # - name: Integration tests
+      #   run: dotnet test tests/NexaFlow.IntegrationTests/NexaFlow.IntegrationTests.csproj --no-build --nologo
+
+      - name: Security vulnerability scan (defender-for-dev)
+        uses: github/codeql-action/init@v3
+        with:
+          languages: csharp
+        continue-on-error: true
+
+      - name: Docker build (smoke)
+        run: docker build -t nexaflow/api:ci-${{ github.sha }} .

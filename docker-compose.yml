@@ -1,0 +1,69 @@
+# NexaFlow docker-compose.yml — local / integration environment.
+# Section 36: `docker compose up -d` should bring API + Postgres up.
+#
+# Phase 1 scope: api + postgres only.
+# Phase 6 will add RabbitMQ.
+# Phase 7 will add Redis.
+#
+# Important: secrets are placeholders for local dev only. Production secrets
+# must come from environment variables or a secret manager — NEVER from this file.
+
+name: nexaflow
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nexaflow-postgres
+    environment:
+      POSTGRES_DB: nexaflow
+      POSTGRES_USER: nexaflow
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - nexaflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexaflow -d nexaflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - nexaflow
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: nexaflow-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__PostgreSQL: "Host=postgres;Port=5432;Database=nexaflow;Username=nexaflow;Password=changeme"
+      Cors__AllowedOrigins__0: "http://localhost:5229"
+      RateLimit__PermitPerMinute: "100"
+      RateLimit__QueueLimit: "0"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - nexaflow
+
+volumes:
+  nexaflow-postgres-data:
+    name: nexaflow-postgres-data
+
+networks:
+  nexaflow:
+    name: nexaflow-network
+    driver: bridge

@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <!--
+    NexaFlow.Api
+    The ASP.NET Core host. Composition root: builds the dependency graph,
+    wires middleware, exposes HTTP endpoints, SignalR hubs (Phase 6+), and
+    background workers (Phase 6+). Phase 1 scope: health checks, Swagger,
+    exception handling, logging, basic security middleware (rate limit, CORS,
+    secure headers). No controllers yet — those land in Phase 2 (Auth).
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>NexaFlow.Api</RootNamespace>
+    <AssemblyName>NexaFlow.Api</AssemblyName>
+    <IsPackable>false</IsPackable>
+    <!-- The Api project generates runtimeconfig.json, appsettings, etc. into bin/ -->
+    <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <!-- Default to enabling OpenAPI for Swagger generation -->
+    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)</OpenApiDocumentsDirectory>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexaFlow.Application\NexaFlow.Application.csproj" />
+    <ProjectReference Include="..\NexaFlow.Infrastructure\NexaFlow.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      .NET 10 ships a built-in OpenAPI document generator (Microsoft.AspNetCore.OpenApi).
+      Scalar.AspNetCore provides a modern UI on top of the generated OpenAPI document at /openapi
+      via /scalar/v1. This replaces Swashbuckle (which has compatibility issues with
+      Microsoft.AspNetCore.OpenApi v2). Section 41 mandates Swagger / OpenAPI documentation.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Scalar.AspNetCore" />
+    <PackageReference Include="AspNetCore.HealthChecks.NpgSql" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Console" />
+    <PackageReference Include="Serilog.Sinks.Async" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+  </ItemGroup>
+
+</Project>

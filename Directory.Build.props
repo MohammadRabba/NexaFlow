@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Directory.Build.props
+  Applies to every project under the repository (src/* and tests/*).
+
+  Centralized code-quality settings:
+    - Target framework: net10.0 (LTS)
+    - Nullable reference types enabled
+    - Implicit usings enabled
+    - All warnings treated as errors (CI gate)
+    - Language version: latest
+    - Unified artifact output path (Bin/Obj) for faster, deduplicated builds
+    - Strong-naming disabled (internal app, not a public library)
+    - Repo-level metadata
+
+  Rationale (Rule 38 — Code Quality):
+    - Nullable: prevents NREs and is part of the modern C# contract.
+    - Warnings-as-errors: ensures code quality stays high; no "ignore the warning" culture.
+    - Unified output: cleaner builds, smaller Docker layers, simpler test artifact discovery.
+-->
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest</AnalysisLevel>
+    <AnalysisMode>All</AnalysisMode>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn)</NoWarn>
+
+    <!-- Unified artifacts layout (much faster incremental builds + smaller Docker context) -->
+    <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
+
+    <!-- Repo metadata -->
+    <Company>NexaFlow</Company>
+    <Product>NexaFlow</Product>
+    <Authors>NexaFlow</Authors>
+    <Copyright>Copyright (c) NexaFlow. All rights reserved.</Copyright>
+    <Version>0.1.0-alpha</Version>
+
+    <!-- Strong-naming: internal application, no need -->
+    <SignAssembly>false</SignAssembly>
+
+    <!-- NuGet publishing: never publish by accident -->
+    <IsPackable>false</IsPackable>
+
+    <!-- Avoid accidental file writes during build -->
+    <ErrorOnDuplicatePublishOutputFiles>true</ErrorOnDuplicatePublishOutputFiles>
+  </PropertyGroup>
+
+  <!-- Shared using directives applied to every project -->
+  <ItemGroup>
+    <Using Include="System" />
+    <Using Include="System.Collections.Generic" />
+    <Using Include="System.Linq" />
+    <Using Include="System.Threading" />
+    <Using Include="System.Threading.Tasks" />
+  </ItemGroup>
+</Project>

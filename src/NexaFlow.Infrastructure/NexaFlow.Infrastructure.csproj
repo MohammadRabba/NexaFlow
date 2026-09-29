@@ -1,0 +1,67 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NexaFlow.Infrastructure
+    Implements the abstractions declared in Application using concrete infrastructure:
+      - ApplicationDbContext (EF Core / Npgsql)
+      - Migrations (EF Core)
+      - CurrentUserService / CurrentTenantService (HTTP middleware-driven in Phase 2+)
+      - PasswordHasher (BCrypt)
+      - UnitOfWork (EF Core transactions)
+
+    DEFERRED for later phases (deliberately absent in Phase 1):
+      - RabbitMQ publisher + OutboxProcessor (Phase 6)
+      - Redis cache service (Phase 7)
+      - SignalR hub (Phase 6)
+      - EmailService SMTP implementation (Phase 2)
+      - OpenTelemetry instrumentation (Phase 9)
+
+    Per Rule 1 (no technology soup) — these are NOT added until needed.
+
+    Dependencies:
+      - NexaFlow.Application (implements its abstractions)
+      - NexaFlow.Domain (entity shape used by configurations)
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>NexaFlow.Infrastructure</RootNamespace>
+    <AssemblyName>NexaFlow.Infrastructure</AssemblyName>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexaFlow.Application\NexaFlow.Application.csproj" />
+    <ProjectReference Include="..\NexaFlow.Domain\NexaFlow.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- EF Core + PostgreSQL provider -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="EFCore.NamingConventions" />
+
+    <!-- EF Core Design (migrations tooling only — not used at runtime) -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+
+    <!-- Auth / password hashing -->
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" />
+    <PackageReference Include="BCrypt.Net-Next" />
+
+    <!-- DI / Options / Hosting / Configuration -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+
+    <!-- Transitive security pins -->
+    <PackageReference Include="System.Security.Cryptography.Xml" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" />
+  </ItemGroup>
+
+</Project>

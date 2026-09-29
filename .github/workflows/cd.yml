@@ -1,0 +1,72 @@
+name: CD
+
+# Phase 1 skeleton. Phase 11 will add the real deploy pipeline.
+# Phase 1: this workflow will run on tags but only builds + pushes
+# the Docker image. Actual deploy is a no-op.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Manual deploy reason'
+        required: false
+        default: 'manual'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'ga'
+
+      - name: Restore + Build
+        run: |
+          dotnet restore NexaFlow.slnx --nologo
+          dotnet build NexaFlow.slnx --no-restore --configuration Release --nologo
+
+      - name: Run unit tests (gate)
+        run: |
+          dotnet test tests/NexaFlow.Domain.Tests/NexaFlow.Domain.Tests.csproj --no-build --nologo
+          dotnet test tests/NexaFlow.Application.Tests/NexaFlow.Application.Tests.csproj --no-build --nologo
+          dotnet test tests/NexaFlow.Api.Tests/NexaFlow.Api.Tests.csproj --no-build --nologo
+
+      - name: Set image tag
+        id: tag
+        run: echo "tag=${GITHUB_REF_NAME:-$(git rev-parse --short HEAD)}" >> "$GITHUB_OUTPUT"
+
+      # Phase 11 will replace this with a real registry push (GHCR / ECR / ACR).
+      # Phase 1: just build the image locally to confirm the Dockerfile works.
+      - name: Docker build
+        run: docker build -t nexaflow/api:${{ steps.tag.outputs.tag }} .
+
+      # - name: Login to registry
+      #   if: github.event_name != 'pull_request'
+      #   run: echo "${{ secrets.REGISTRY_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      #
+      # - name: Docker push
+      #   if: github.event_name != 'pull_request'
+      #   run: docker push ghcr.io/${{ github.repository_owner }}/nexaflow/api:${{ steps.tag.outputs.tag }}
+
+      - name: Deploy (Phase 11 placeholder)
+        run: |
+          echo "Phase 1: deploy is a no-op. Phase 11 will add real deploy."
+          echo "Image would be: nexaflow/api:${{ steps.tag.outputs.tag }}"

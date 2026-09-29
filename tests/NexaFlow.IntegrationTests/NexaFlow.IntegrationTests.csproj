@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NexaFlow.IntegrationTests
+    Real-infrastructure integration tests using Testcontainers + a real
+    PostgreSQL instance (section 34: "Do not make every integration test
+    depend on mocks. For infrastructure-dependent tests, prefer disposable
+    isolated environments where practical.").
+
+    Phase 1 scope: only the Postgres test container fixture is wired up —
+    enough that Phase 3 can immediately add cross-tenant isolation tests.
+    The fixture is intentionally NOT exercised by any Phase 1 test so we
+    do not require Docker to be running to execute Phase 1 test suites.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <RootNamespace>NexaFlow.IntegrationTests</RootNamespace>
+    <!--
+      SSH.NET — transitive via Testcontainers.Renci.SshNet — has a known
+      vulnerability in 2024.2.0 (GHSA-mggc-4xg6-vcxf, GHSA-q939-rpr3-3284).
+      It is used only by Testcontainers for SSH-based container probing;
+      not loaded in production. Suppress NU1903 for this test project until
+      Testcontainers releases a fix that bumps SSH.NET. Audit periodically.
+    -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\NexaFlow.Api\NexaFlow.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="coverlet.collector" />
+    <!-- Required for DI BuildServiceProvider + LoggerFactory in test doubles -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+  </ItemGroup>
+
+</Project>

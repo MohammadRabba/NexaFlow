@@ -1,0 +1,54 @@
+# --- .NET / Visual Studio artifacts ---
+artifacts/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.userprefs
+*.cache
+*.log
+
+# --- IDE ---
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# --- Test results ---
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+TestResults/
+coverage/
+*.coverage
+*.coveragexml
+
+# --- NuGet ---
+*.nupkg
+*.snupkg
+.nuget/
+nuget.exe
+packages/
+project.lock.json
+project.fragment.lock.json
+artifacts-lock-*.json
+
+# --- Secrets (never commit) ---
+.env
+.env.local
+.env.*.local
+secrets.json
+appsettings.*.Development.json
+appsettings.Local.json
+appsettings.*.User.json
+
+# --- EF Core tooling ---
+*.efmbundle
+
+# --- Docker ---
+.docker/
+
+# --- Logs ---
+logs/
+serilog-*.txt

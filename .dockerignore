@@ -1,0 +1,25 @@
+# .dockerignore — keeps Docker build context small.
+# Mirrors .gitignore plus common .NET dev artifacts.
+
+**/bin/
+**/obj/
+artifacts/
+**/TestResults/
+.vs/
+.vscode/
+.idea/
+.git/
+.gitignore
+.editorconfig
+.env*
+*.user
+*.suo
+*.cache
+*.log
+*.md
+docs/
+.github/
+tests/
+README.md
+Dockerfile
+docker-compose.yml

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    NexaFlow.Application
+    Holds CQRS use cases (Commands / Queries / Handlers / Validators) and the
+    abstractions that the Domain layer needs from infrastructure (section 12).
+
+    Dependencies: only NexaFlow.Domain.
+    FORBIDDEN: EF Core, Npgsql, ASP.NET Core, Redis, RabbitMQ, SignalR.
+
+    Phase 1 scope: abstractions + behaviors + DI helpers. No features/handlers yet
+    (those land in Phases 2..5 with Auth, Organizations, Projects, Tasks).
+  -->
+
+  <PropertyGroup>
+    <RootNamespace>NexaFlow.Application</RootNamespace>
+    <AssemblyName>NexaFlow.Application</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NexaFlow.Domain\NexaFlow.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="FluentValidation" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Options" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
+    <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+  </ItemGroup>
+
+</Project>
