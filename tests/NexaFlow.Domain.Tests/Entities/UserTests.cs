@@ -131,6 +131,6 @@ public sealed class UserTests
 
         // Assert — explicit guard
         act.Should().Throw<InvalidOperationException>()
-            .WithMessage("*Owner*Ownership must be transferred*");
+            .WithMessage("*Cannot change an Owner's role*");
     }
 }
