@@ -48,6 +48,55 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public Task<int> CountActiveRefreshTokensInFamilyAsync(Guid familyId, CancellationToken ct = default)
         => Task.FromResult(RefreshTokens.Count(t => t.FamilyId == familyId && t.RevokedAtUtc == null));
 
+    public Task<bool> IsOrganizationSlugTakenAsync(string slug, CancellationToken ct = default)
+        => Task.FromResult(Organizations.Any(o => o.Slug == slug));
+
+    public Task<Organization?> FindOrganizationByIdAsync(Guid id, CancellationToken ct = default)
+        => Task.FromResult(Organizations.FirstOrDefault(o => o.Id == id && !o.IsDeleted));
+
+    public Task<Organization?> FindOrganizationWithMembersAsync(Guid id, CancellationToken ct = default)
+    {
+        var org = Organizations.FirstOrDefault(o => o.Id == id && !o.IsDeleted);
+        // Members are stored separately in the test double; we just return the org.
+        // (In the real DbContext, EF Core loads them via the navigation property.)
+        // For tests that need to assert on Members, the test code populates both lists
+        // consistently. Production Organization has _members as a private field.
+        return Task.FromResult(org);
+    }
+
+    public Task<OrganizationMember?> FindMembershipAsync(
+        Guid organizationId, Guid userId, CancellationToken ct = default)
+        => Task.FromResult(OrganizationMembers.FirstOrDefault(
+            m => m.OrganizationId == organizationId && m.UserId == userId && m.IsActive));
+
+    public Task<(List<OrganizationMember> Items, long Total)> GetPagedMembersAsync(
+        Guid organizationId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var filtered = OrganizationMembers
+            .Where(m => m.OrganizationId == organizationId && m.IsActive)
+            .OrderBy(m => m.CreatedAtUtc)
+            .ToList();
+        var total = (long)filtered.Count;
+        var items = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
+    public Task<(List<Organization> Items, long Total)> GetPagedOrganizationsForUserAsync(
+        Guid userId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var orgIds = OrganizationMembers
+            .Where(m => m.UserId == userId && m.IsActive)
+            .Select(m => m.OrganizationId)
+            .ToHashSet();
+        var filtered = Organizations
+            .Where(o => orgIds.Contains(o.Id) && !o.IsDeleted)
+            .OrderByDescending(o => o.CreatedAtUtc)
+            .ToList();
+        var total = (long)filtered.Count;
+        var items = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)

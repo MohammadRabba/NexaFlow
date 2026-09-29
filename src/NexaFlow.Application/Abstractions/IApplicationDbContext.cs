@@ -52,6 +52,32 @@ public interface IApplicationDbContext
     /// <summary>Count active refresh tokens in a family.</summary>
     Task<int> CountActiveRefreshTokensInFamilyAsync(Guid familyId, CancellationToken ct = default);
 
+    /// <summary>True if an organization with the given slug exists (case-sensitive).</summary>
+    Task<bool> IsOrganizationSlugTakenAsync(string slug, CancellationToken ct = default);
+
+    /// <summary>Find an organization by id (without loading Members). Returns null if not found.</summary>
+    Task<Organization?> FindOrganizationByIdAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    ///     Load an organization with all its active members. Used for mutations that need
+    ///     to enforce cross-member invariants (e.g., ownership transfer).
+    /// </summary>
+    Task<Organization?> FindOrganizationWithMembersAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>
+    ///     Find a single membership by (organizationId, userId). Returns null if not found
+    ///     or if the membership is inactive. Bypasses the global tenant filter.
+    /// </summary>
+    Task<OrganizationMember?> FindMembershipAsync(Guid organizationId, Guid userId, CancellationToken ct = default);
+
+    /// <summary>Page the active memberships of an organization. Returns total + items.</summary>
+    Task<(List<OrganizationMember> Items, long Total)> GetPagedMembersAsync(
+        Guid organizationId, int page, int pageSize, CancellationToken ct = default);
+
+    /// <summary>Page the organizations the user belongs to. Returns total + items.</summary>
+    Task<(List<Organization> Items, long Total)> GetPagedOrganizationsForUserAsync(
+        Guid userId, int page, int pageSize, CancellationToken ct = default);
+
     // --- Mutations: stage changes; SaveChangesAsync commits them ---
 
     /// <summary>

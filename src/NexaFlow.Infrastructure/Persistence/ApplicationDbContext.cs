@@ -64,6 +64,67 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     Task<int> IApplicationDbContext.CountActiveRefreshTokensInFamilyAsync(Guid familyId, CancellationToken ct)
         => RefreshTokens.CountAsync(t => t.FamilyId == familyId && t.RevokedAtUtc == null, ct);
 
+    Task<bool> IApplicationDbContext.IsOrganizationSlugTakenAsync(string slug, CancellationToken ct)
+        => Organizations.AnyAsync(o => o.Slug == slug, ct);
+
+    Task<Organization?> IApplicationDbContext.FindOrganizationByIdAsync(Guid id, CancellationToken ct)
+        => Organizations.SingleOrDefaultAsync(o => o.Id == id, ct);
+
+    Task<Organization?> IApplicationDbContext.FindOrganizationWithMembersAsync(Guid id, CancellationToken ct)
+        // Include Members via the navigation; EF Core's identity map ensures the Members collection
+        // is consistent with the DbSet. Use IgnoreQueryFilters because the OrganizationMember table
+        // is itself tenant-scoped — we want to load ALL members of the requested org, not just those
+        // whose OrganizationId matches the ambient tenant (which IS this org, but being explicit).
+        => Organizations
+            .Include(o => o.Members)
+            .IgnoreQueryFilters()
+            .SingleOrDefaultAsync(o => o.Id == id, ct);
+
+    Task<OrganizationMember?> IApplicationDbContext.FindMembershipAsync(
+        Guid organizationId, Guid userId, CancellationToken ct)
+        // Bypass the global query filter — we are explicitly querying the membership for a
+        // specific (org, user) pair, which may not match the ambient tenant (e.g., during
+        // tenant-resolution middleware itself).
+        => OrganizationMembers
+            .IgnoreQueryFilters()
+            .Where(m => m.OrganizationId == organizationId && m.UserId == userId && m.IsActive)
+            .FirstOrDefaultAsync(ct);
+
+    async Task<(List<OrganizationMember> Items, long Total)> IApplicationDbContext.GetPagedMembersAsync(
+        Guid organizationId, int page, int pageSize, CancellationToken ct)
+    {
+        // The global query filter scopes by the ambient tenant. We pass organizationId
+        // explicitly to validate it's the same as the ambient tenant (otherwise the
+        // filter returns nothing, which is the correct cross-tenant safe behavior).
+        var query = OrganizationMembers
+            .Where(m => m.OrganizationId == organizationId && m.IsActive);
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .OrderBy(m => m.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
+    async Task<(List<Organization> Items, long Total)> IApplicationDbContext.GetPagedOrganizationsForUserAsync(
+        Guid userId, int page, int pageSize, CancellationToken ct)
+    {
+        // Organizations are not tenant-scoped (they ARE the tenant). The query filter does
+        // not apply. We join through OrganizationMember to find orgs this user belongs to.
+        var query = from org in Organizations
+                    join m in OrganizationMembers on org.Id equals m.OrganizationId
+                    where m.UserId == userId && m.IsActive && org.DeletedAtUtc == null
+                    orderby org.CreatedAtUtc descending
+                    select org;
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Snake_case naming is applied at the DbContextOptionsBuilder level via
