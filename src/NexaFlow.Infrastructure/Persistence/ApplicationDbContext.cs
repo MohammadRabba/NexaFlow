@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Domain.Common;
 using NexaFlow.Domain.Entities;
+using NexaFlow.Domain.Enums;
 
 namespace NexaFlow.Infrastructure.Persistence;
 
@@ -35,11 +36,15 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations;
     IQueryable<OrganizationMember> IApplicationDbContext.OrganizationMembers => OrganizationMembers;
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens;
+    IQueryable<Project> IApplicationDbContext.Projects => Projects;
+    IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationMember> OrganizationMembers => Set<OrganizationMember>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
 
     void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class
         => Set<TEntity>().Add(entity);
@@ -117,6 +122,91 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                     where m.UserId == userId && m.IsActive && org.DeletedAtUtc == null
                     orderby org.CreatedAtUtc descending
                     select org;
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
+    async Task<Project?> IApplicationDbContext.FindProjectWithMembersAsync(Guid projectId, CancellationToken ct)
+    {
+        // Bypass the tenant filter: the caller (handler) must verify the resolved tenant
+        // matches the loaded project's OrganizationId via EnsureMatchesTenantId BEFORE
+        // trusting the result. Loaded tracked (no AsNoTracking) — handlers mutate the
+        // project + its Members collection.
+        return await Projects
+            .Include(p => p.Members)
+            .IgnoreQueryFilters()
+            .Where(p => !p.IsDeleted)
+            .FirstOrDefaultAsync(p => p.Id == projectId, ct);
+    }
+
+    Task<ProjectMember?> IApplicationDbContext.FindProjectMembershipAsync(
+        Guid projectId, Guid userId, CancellationToken ct)
+        => ProjectMembers
+            .IgnoreQueryFilters()
+            .Where(m => m.ProjectId == projectId && m.UserId == userId)
+            .FirstOrDefaultAsync(ct);
+
+    async Task<(List<Project> Items, long Total)> IApplicationDbContext.GetPagedProjectsAsync(
+        Guid organizationId,
+        ProjectStatus? statusFilter,
+        string? nameSearch,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        // The global query filter scopes by the ambient tenant. We additionally pass
+        // organizationId explicitly so that if the ambient tenant is null, the query
+        // returns no rows (the filter would have done this anyway).
+        var query = Projects.Where(p =>
+            p.OrganizationId == organizationId && !p.IsDeleted);
+
+        if (statusFilter.HasValue)
+        {
+            query = query.Where(p => p.Status == statusFilter.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(nameSearch))
+        {
+            // Case-insensitive substring search on Name. Uses EF.Functions.ILike for
+            // PostgreSQL native case-insensitive ILIKE; the index on (organization_id, status)
+            // is NOT used by this query path, but for a tenant-scoped list this is fine —
+            // the cardinality per tenant is bounded.
+            query = query.Where(p => EF.Functions.ILike(p.Name, $"%{nameSearch}%"));
+        }
+
+        // Sorting. Default to CreatedAtUtc descending (most-recent first).
+        query = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("name", true) => query.OrderByDescending(p => p.Name),
+            ("name", false) => query.OrderBy(p => p.Name),
+            ("status", true) => query.OrderByDescending(p => p.Status),
+            ("status", false) => query.OrderBy(p => p.Status),
+            ("duedate", true) => query.OrderByDescending(p => p.DueDateUtc),
+            ("duedate", false) => query.OrderBy(p => p.DueDateUtc),
+            ("createdat", true) => query.OrderByDescending(p => p.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(p => p.CreatedAtUtc),
+            _ => query.OrderByDescending(p => p.CreatedAtUtc)  // default
+        };
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
+    async Task<(List<ProjectMember> Items, long Total)> IApplicationDbContext.GetPagedProjectMembersAsync(
+        Guid projectId, int page, int pageSize, CancellationToken ct)
+    {
+        var query = ProjectMembers
+            .Where(m => m.ProjectId == projectId)
+            .OrderBy(m => m.CreatedAtUtc);
         var total = await query.LongCountAsync(ct);
         var items = await query
             .Skip((page - 1) * pageSize)

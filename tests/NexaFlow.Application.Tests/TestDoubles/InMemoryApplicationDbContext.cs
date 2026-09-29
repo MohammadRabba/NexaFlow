@@ -1,6 +1,7 @@
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Domain.Common;
 using NexaFlow.Domain.Entities;
+using NexaFlow.Domain.Enums;
 
 namespace NexaFlow.Application.Tests.TestDoubles;
 
@@ -27,11 +28,15 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public List<Organization> Organizations { get; } = [];
     public List<OrganizationMember> OrganizationMembers { get; } = [];
     public List<RefreshToken> RefreshTokens { get; } = [];
+    public List<Project> Projects { get; } = [];
+    public List<ProjectMember> ProjectMembers { get; } = [];
 
     IQueryable<User> IApplicationDbContext.Users => Users.AsQueryable();
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations.AsQueryable();
     IQueryable<OrganizationMember> IApplicationDbContext.OrganizationMembers => OrganizationMembers.AsQueryable();
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens.AsQueryable();
+    IQueryable<Project> IApplicationDbContext.Projects => Projects.AsQueryable();
+    IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers.AsQueryable();
 
     public Task<User?> FindUserByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.Email.Normalized == normalizedEmail));
@@ -97,6 +102,65 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
         return Task.FromResult((items, total));
     }
 
+    public Task<Project?> FindProjectWithMembersAsync(Guid projectId, CancellationToken ct = default)
+    {
+        // In-memory test double: Project.Members is the in-aggregate collection.
+        var project = Projects.FirstOrDefault(p => p.Id == projectId && !p.IsDeleted);
+        return Task.FromResult(project);
+    }
+
+    public Task<ProjectMember?> FindProjectMembershipAsync(Guid projectId, Guid userId, CancellationToken ct = default)
+    {
+        var m = ProjectMembers.FirstOrDefault(pm =>
+            pm.ProjectId == projectId && pm.UserId == userId);
+        return Task.FromResult(m);
+    }
+
+    public Task<(List<Project> Items, long Total)> GetPagedProjectsAsync(
+        Guid organizationId,
+        ProjectStatus? statusFilter,
+        string? nameSearch,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = Projects.Where(p => p.OrganizationId == organizationId && !p.IsDeleted);
+        if (statusFilter.HasValue) query = query.Where(p => p.Status == statusFilter.Value);
+        if (!string.IsNullOrWhiteSpace(nameSearch))
+            query = query.Where(p => p.Name.Contains(nameSearch, StringComparison.OrdinalIgnoreCase));
+
+        IEnumerable<Project> ordered = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("name", true) => query.OrderByDescending(p => p.Name),
+            ("name", false) => query.OrderBy(p => p.Name),
+            ("status", true) => query.OrderByDescending(p => p.Status),
+            ("status", false) => query.OrderBy(p => p.Status),
+            ("duedate", true) => query.OrderByDescending(p => p.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("duedate", false) => query.OrderBy(p => p.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("createdat", true) => query.OrderByDescending(p => p.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(p => p.CreatedAtUtc),
+            _ => query.OrderByDescending(p => p.CreatedAtUtc)
+        };
+        var list = ordered.ToList();
+        var total = (long)list.Count;
+        var items = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
+    public Task<(List<ProjectMember> Items, long Total)> GetPagedProjectMembersAsync(
+        Guid projectId, int page, int pageSize, CancellationToken ct = default)
+    {
+        var filtered = ProjectMembers
+            .Where(m => m.ProjectId == projectId)
+            .OrderBy(m => m.CreatedAtUtc)
+            .ToList();
+        var total = (long)filtered.Count;
+        var items = filtered.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)
@@ -105,6 +169,8 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Organization o: Organizations.Add(o); break;
             case OrganizationMember m: OrganizationMembers.Add(m); break;
             case RefreshToken t: RefreshTokens.Add(t); break;
+            case Project p: Projects.Add(p); break;
+            case ProjectMember pm: ProjectMembers.Add(pm); break;
         }
     }
 
@@ -116,6 +182,8 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Organization o: Organizations.Remove(o); break;
             case OrganizationMember m: OrganizationMembers.Remove(m); break;
             case RefreshToken t: RefreshTokens.Remove(t); break;
+            case Project p: Projects.Remove(p); break;
+            case ProjectMember pm: ProjectMembers.Remove(pm); break;
         }
     }
 
