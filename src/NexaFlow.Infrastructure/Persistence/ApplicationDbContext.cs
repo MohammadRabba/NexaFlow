@@ -39,6 +39,9 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     IQueryable<Project> IApplicationDbContext.Projects => Projects;
     IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers;
     IQueryable<TaskItem> IApplicationDbContext.Tasks => Tasks;
+    IQueryable<Label> IApplicationDbContext.Labels => Labels;
+    IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels;
+    IQueryable<Comment> IApplicationDbContext.Comments => Comments;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -47,6 +50,9 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
     public DbSet<TaskItem> Tasks => Set<TaskItem>();
+    public DbSet<Label> Labels => Set<Label>();
+    public DbSet<TaskLabel> TaskLabels => Set<TaskLabel>();
+    public DbSet<Comment> Comments => Set<Comment>();
 
     void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class
         => Set<TEntity>().Add(entity);
@@ -342,6 +348,36 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
             .ToListAsync(ct);
         return (items, total);
     }
+
+    async Task<List<Label>> IApplicationDbContext.GetLabelsForOrganizationAsync(
+        Guid organizationId, CancellationToken ct)
+    {
+        return await Labels
+            .Where(l => l.OrganizationId == organizationId)
+            .OrderBy(l => l.Name)
+            .ToListAsync(ct);
+    }
+
+    async Task<List<Comment>> IApplicationDbContext.GetCommentsForTaskAsync(
+        Guid taskId, CancellationToken ct)
+    {
+        return await Comments
+            .Where(c => c.TaskId == taskId && !c.IsDeleted)
+            .OrderBy(c => c.CreatedAtUtc)
+            .ToListAsync(ct);
+    }
+
+    Task<Label?> IApplicationDbContext.FindLabelAsync(Guid labelId, Guid organizationId, CancellationToken ct)
+        => Labels.FirstOrDefaultAsync(l => l.Id == labelId && l.OrganizationId == organizationId, ct);
+
+    Task<TaskLabel?> IApplicationDbContext.FindTaskLabelAsync(
+        Guid taskId, Guid labelId, Guid organizationId, CancellationToken ct)
+        => TaskLabels.FirstOrDefaultAsync(
+            tl => tl.TaskId == taskId && tl.LabelId == labelId && tl.OrganizationId == organizationId, ct);
+
+    Task<Comment?> IApplicationDbContext.FindCommentAsync(Guid commentId, Guid organizationId, CancellationToken ct)
+        => Comments.FirstOrDefaultAsync(
+            c => c.Id == commentId && c.OrganizationId == organizationId && !c.IsDeleted, ct);
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -31,6 +31,9 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public List<Project> Projects { get; } = [];
     public List<ProjectMember> ProjectMembers { get; } = [];
     public List<TaskItem> Tasks { get; } = [];
+    public List<Label> Labels { get; } = [];
+    public List<TaskLabel> TaskLabels { get; } = [];
+    public List<Comment> Comments { get; } = [];
 
     IQueryable<User> IApplicationDbContext.Users => Users.AsQueryable();
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations.AsQueryable();
@@ -39,6 +42,9 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     IQueryable<Project> IApplicationDbContext.Projects => Projects.AsQueryable();
     IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers.AsQueryable();
     IQueryable<TaskItem> IApplicationDbContext.Tasks => Tasks.AsQueryable();
+    IQueryable<Label> IApplicationDbContext.Labels => Labels.AsQueryable();
+    IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels.AsQueryable();
+    IQueryable<Comment> IApplicationDbContext.Comments => Comments.AsQueryable();
 
     public Task<User?> FindUserByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.Email.Normalized == normalizedEmail));
@@ -266,6 +272,27 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
         return Task.FromResult((items, total));
     }
 
+    public Task<List<Label>> GetLabelsForOrganizationAsync(Guid organizationId, CancellationToken ct = default)
+    {
+        var result = Labels.Where(l => l.OrganizationId == organizationId).OrderBy(l => l.Name).ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<List<Comment>> GetCommentsForTaskAsync(Guid taskId, CancellationToken ct = default)
+    {
+        var result = Comments.Where(c => c.TaskId == taskId && !c.IsDeleted).OrderBy(c => c.CreatedAtUtc).ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<Label?> FindLabelAsync(Guid labelId, Guid organizationId, CancellationToken ct = default)
+        => Task.FromResult(Labels.FirstOrDefault(l => l.Id == labelId && l.OrganizationId == organizationId));
+
+    public Task<TaskLabel?> FindTaskLabelAsync(Guid taskId, Guid labelId, Guid organizationId, CancellationToken ct = default)
+        => Task.FromResult(TaskLabels.FirstOrDefault(tl => tl.TaskId == taskId && tl.LabelId == labelId && tl.OrganizationId == organizationId));
+
+    public Task<Comment?> FindCommentAsync(Guid commentId, Guid organizationId, CancellationToken ct = default)
+        => Task.FromResult(Comments.FirstOrDefault(c => c.Id == commentId && c.OrganizationId == organizationId && !c.IsDeleted));
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)
@@ -277,6 +304,9 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Project p: Projects.Add(p); break;
             case ProjectMember pm: ProjectMembers.Add(pm); break;
             case TaskItem t: Tasks.Add(t); break;
+            case Label l: Labels.Add(l); break;
+            case TaskLabel tl: TaskLabels.Add(tl); break;
+            case Comment c: Comments.Add(c); break;
         }
     }
 
@@ -291,6 +321,9 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Project p: Projects.Remove(p); break;
             case ProjectMember pm: ProjectMembers.Remove(pm); break;
             case TaskItem t: Tasks.Remove(t); break;
+            case Label l: Labels.Remove(l); break;
+            case TaskLabel tl: TaskLabels.Remove(tl); break;
+            case Comment c: Comments.Remove(c); break;
         }
     }
 

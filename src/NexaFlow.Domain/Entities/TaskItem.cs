@@ -1,5 +1,6 @@
 using NexaFlow.Domain.Common;
 using NexaFlow.Domain.Enums;
+using NexaFlow.Domain.Events.Tasks;
 using NexaFlow.Domain.Exceptions;
 
 namespace NexaFlow.Domain.Entities;
@@ -48,7 +49,7 @@ public class TaskItem : AggregateRoot, ITenantEntity
         if (priority == TaskPriority.None)
             throw new ArgumentException("Priority must not be None.", nameof(priority));
 
-        return new TaskItem
+        var task = new TaskItem
         {
             ProjectId = projectId,
             OrganizationId = organizationId,
@@ -61,6 +62,9 @@ public class TaskItem : AggregateRoot, ITenantEntity
             CreatedAtUtc = atUtc,
             UpdatedAtUtc = atUtc
         };
+        task.AddDomainEvent(new TaskCreatedEvent(
+            task.Id, projectId, organizationId, reporterId, task.Title, atUtc));
+        return task;
     }
 
     public void Update(
@@ -113,9 +117,11 @@ public class TaskItem : AggregateRoot, ITenantEntity
         if (!Status.CanTransitionTo(target))
             throw new InvalidStateTransitionException(nameof(TaskItem), Status.ToString(), target.ToString());
 
+        var fromStatus = Status.ToString();
         Status = target;
         UpdatedAtUtc = atUtc;
         UpdatedByUserId = updatedByUserId;
+        AddDomainEvent(new TaskStatusChangedEvent(Id, fromStatus, target.ToString(), atUtc));
     }
 
     public void Assign(Guid? assigneeId, Guid? updatedByUserId, DateTimeOffset atUtc)
@@ -126,5 +132,6 @@ public class TaskItem : AggregateRoot, ITenantEntity
         AssigneeId = assigneeId;
         UpdatedAtUtc = atUtc;
         UpdatedByUserId = updatedByUserId;
+        AddDomainEvent(new TaskAssignedEvent(Id, assigneeId, atUtc));
     }
 }

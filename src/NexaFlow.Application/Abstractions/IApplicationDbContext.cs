@@ -18,6 +18,9 @@ public interface IApplicationDbContext
     IQueryable<Project> Projects { get; }
     IQueryable<ProjectMember> ProjectMembers { get; }
     IQueryable<TaskItem> Tasks { get; }
+    IQueryable<Label> Labels { get; }
+    IQueryable<TaskLabel> TaskLabels { get; }
+    IQueryable<Comment> Comments { get; }
 
     // --- Named async queries (thin repository pattern) ---
 
@@ -122,6 +125,13 @@ public interface IApplicationDbContext
         int page,
         int pageSize,
         CancellationToken ct = default);
+
+    // Labels (Phase 5)
+    Task<List<Label>> GetLabelsForOrganizationAsync(Guid organizationId, CancellationToken ct = default);
+    Task<Label?> FindLabelAsync(Guid labelId, Guid organizationId, CancellationToken ct = default);
+    Task<TaskLabel?> FindTaskLabelAsync(Guid taskId, Guid labelId, Guid organizationId, CancellationToken ct = default);
+    Task<List<Comment>> GetCommentsForTaskAsync(Guid taskId, CancellationToken ct = default);
+    Task<Comment?> FindCommentAsync(Guid commentId, Guid organizationId, CancellationToken ct = default);
 
     // --- Mutations ---
 
