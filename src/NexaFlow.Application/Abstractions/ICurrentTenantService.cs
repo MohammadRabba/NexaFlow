@@ -46,6 +46,23 @@ public interface ICurrentTenantService
     ///     tenant — explicit failure is preferred over silent misattribution.
     /// </summary>
     Guid RequireTenantId();
+
+    /// <summary>
+    ///     Ensures the resolved tenant matches <paramref name="expectedOrganizationId" />.
+    ///     Throws <see cref="NexaFlow.Domain.Exceptions.NotFoundException" /> if:
+    ///     <list type="bullet">
+    ///         <item>No tenant is resolved (the user did not select an org, or selected a different one).</item>
+    ///         <item>The resolved tenant id differs from the URL's organization id.</item>
+    ///     </list>
+    ///     Returns the resolved tenant id on success.
+    ///     <para>
+    ///         This is the cross-tenant leak guard. Use it at the start of every handler
+    ///         that takes an organizationId from the URL — the URL id must match the
+    ///         resolved tenant, otherwise the request is either a typo or an attack,
+    ///         and we return 404 (no enumeration leak).
+    ///     </para>
+    /// </summary>
+    Guid EnsureMatchesTenantId(Guid expectedOrganizationId);
 }
 
 /// <summary>

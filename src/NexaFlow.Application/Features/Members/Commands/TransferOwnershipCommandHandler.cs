@@ -9,15 +9,18 @@ public sealed class TransferOwnershipCommandHandler : IRequestHandler<TransferOw
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentTenantService _currentTenant;
     private readonly ILogger<TransferOwnershipCommandHandler> _logger;
 
     public TransferOwnershipCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
+        ICurrentTenantService currentTenant,
         ILogger<TransferOwnershipCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
+        _currentTenant = currentTenant;
         _logger = logger;
     }
 
@@ -28,6 +31,9 @@ public sealed class TransferOwnershipCommandHandler : IRequestHandler<TransferOw
         {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
         }
+
+        // Cross-tenant guard.
+        _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
         // Load the org with members — TransferOwnership touches two members at once.
         var org = await _db.FindOrganizationWithMembersAsync(request.OrganizationId, cancellationToken)

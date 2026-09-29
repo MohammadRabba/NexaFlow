@@ -16,6 +16,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
     private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly IEmailService _emailService;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentTenantService _currentTenant;
     private readonly AuthOptions _options;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
@@ -24,6 +25,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         ISecureTokenGenerator tokenGenerator,
         IEmailService emailService,
         ICurrentUserService currentUser,
+        ICurrentTenantService currentTenant,
         IOptions<AuthOptions> options,
         ILogger<InviteMemberCommandHandler> logger)
     {
@@ -31,6 +33,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         _tokenGenerator = tokenGenerator;
         _emailService = emailService;
         _currentUser = currentUser;
+        _currentTenant = currentTenant;
         _options = options.Value;
         _logger = logger;
     }
@@ -42,6 +45,11 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
         }
+
+        // Cross-tenant guard: the URL's organizationId MUST match the resolved tenant.
+        // Without this check, an Admin in orgA could invite a member to orgB by simply
+        // changing the URL — the [Authorize] policy only checks the resolved tenant (orgA).
+        _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
         // Load the organization with its members — we need to check the membership invariants
         // (e.g., "is this user already a member") on the aggregate boundary.

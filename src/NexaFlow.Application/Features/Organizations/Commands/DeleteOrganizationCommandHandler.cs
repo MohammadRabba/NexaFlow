@@ -9,15 +9,18 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentTenantService _currentTenant;
     private readonly ILogger<DeleteOrganizationCommandHandler> _logger;
 
     public DeleteOrganizationCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
+        ICurrentTenantService currentTenant,
         ILogger<DeleteOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
+        _currentTenant = currentTenant;
         _logger = logger;
     }
 
@@ -28,6 +31,9 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
         {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
         }
+
+        // Cross-tenant guard.
+        _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
         var org = await _db.FindOrganizationByIdAsync(request.OrganizationId, cancellationToken)
             ?? throw new NotFoundException("Organization", request.OrganizationId);

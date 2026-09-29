@@ -11,15 +11,18 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly ICurrentTenantService _currentTenant;
     private readonly ILogger<RemoveMemberCommandHandler> _logger;
 
     public RemoveMemberCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
+        ICurrentTenantService currentTenant,
         ILogger<RemoveMemberCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
+        _currentTenant = currentTenant;
         _logger = logger;
     }
 
@@ -30,6 +33,10 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
         {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
         }
+
+        // Cross-tenant guard: URL's organizationId must match the resolved tenant.
+        // Without this check, an Admin in orgA could remove members from orgB by URL manipulation.
+        _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
         // Load the organization with members — RemoveMember is an aggregate operation
         // (cross-member invariant: "can't remove the Owner").

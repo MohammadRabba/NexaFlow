@@ -34,6 +34,11 @@ public sealed class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMembe
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
         }
 
+        // Cross-tenant guard: URL's organizationId must match the resolved tenant.
+        // The [Authorize(Policy = MemberUpdate)] only checked the resolved tenant's role;
+        // without this check, an Admin in orgA could change roles in orgB by URL manipulation.
+        _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
+
         // Load the membership bypassing the tenant filter (the controller's [Authorize] already
         // verified the actor is a member of the resolved tenant). We bypass the filter so that
         // if the caller targets a membership in another org, we still see the row and can
