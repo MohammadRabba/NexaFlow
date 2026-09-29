@@ -31,6 +31,12 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
+    <!--
+      ASP.NET Core authorization primitives (IAuthorizationRequirement, AuthorizationHandler<T>)
+      used by the PermissionAuthorizationHandler. This is NOT ASP.NET Core the web framework —
+      just the authorization contract. Application stays free of HTTP / MVC concerns.
+    -->
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" />
   </ItemGroup>
 
 </Project>

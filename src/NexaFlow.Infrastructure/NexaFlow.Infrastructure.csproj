@@ -58,6 +58,8 @@
     <PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <!-- ASP.NET Core authorization primitives — Infrastructure hosts the PermissionAuthorizationHandler. -->
+    <PackageReference Include="Microsoft.AspNetCore.Authorization" />
 
     <!-- Transitive security pins -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
