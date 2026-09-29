@@ -89,12 +89,12 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         var (plaintextToken, tokenHash) = _tokenGenerator.Generate();
         var expiresAt = DateTimeOffset.UtcNow + _options.EmailVerificationTokenLifetime;
 
-        // Use the domain factory — it sets IsActive=false, stores the token hash.
         var invitation = OrganizationMember.CreatePendingInvite(
             organizationId: org.Id,
             userId: invitee.Id,
             role: request.Role,
             invitationTokenHash: tokenHash,
+            expiresAtUtc: expiresAt,
             atUtc: DateTimeOffset.UtcNow);
 
         // We bypass Organization.AddMember here because the member is NOT yet active

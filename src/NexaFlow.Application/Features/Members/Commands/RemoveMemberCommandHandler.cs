@@ -97,9 +97,19 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
         // Apply the domain mutation. The aggregate also enforces "cannot remove the Owner".
         org.RemoveMember(request.TargetUserId, DateTimeOffset.UtcNow);
 
-        // Hard-delete the membership row via the DbContext. Audit logs reference user_id +
-        // organization_id, not the membership row — so we don't lose audit trail.
+        // Hard-delete the org membership row.
         _db.Remove(target);
+
+        // Cascade: remove all project memberships for this user in this org.
+        // Without this, a re-invited user would silently inherit their old project roles
+        // (e.g., project Owner), bypassing the org-level demotion.
+        var projectMemberships = await _db.GetProjectMembersForUserInOrgAsync(
+            request.OrganizationId, request.TargetUserId, cancellationToken);
+        foreach (var pm in projectMemberships)
+        {
+            _db.Remove(pm);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

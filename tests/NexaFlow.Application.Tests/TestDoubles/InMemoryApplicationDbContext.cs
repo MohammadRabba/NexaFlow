@@ -203,6 +203,24 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
         return Task.FromResult((items, total));
     }
 
+    public Task<List<ProjectMember>> GetProjectMembersForUserInOrgAsync(
+        Guid organizationId, Guid userId, CancellationToken ct = default)
+    {
+        var result = ProjectMembers
+            .Where(m => m.OrganizationId == organizationId && m.UserId == userId)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<List<Project>> GetActiveProjectsForOrganizationAsync(
+        Guid organizationId, CancellationToken ct = default)
+    {
+        var result = Projects
+            .Where(p => p.OrganizationId == organizationId && !p.IsDeleted)
+            .ToList();
+        return Task.FromResult(result);
+    }
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)

@@ -23,6 +23,7 @@ public sealed class OrganizationMemberConfiguration : IEntityTypeConfiguration<O
 
         builder.Property(m => m.IsActive).HasColumnName("is_active").IsRequired();
         builder.Property(m => m.InvitationTokenHash).HasColumnName("invitation_token_hash").HasMaxLength(256);
+        builder.Property(m => m.InvitationExpiresAtUtc).HasColumnName("invitation_expires_at_utc");
         builder.Property(m => m.AcceptedAtUtc).HasColumnName("accepted_at_utc");
 
         builder.Property(m => m.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();

@@ -28,27 +28,38 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
     {
         ArgumentNullException.ThrowIfNull(request);
         if (!_currentUser.IsAuthenticated || _currentUser.UserId is not { } userId)
-        {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
-        }
 
-        // Cross-tenant guard.
         _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
-        var org = await _db.FindOrganizationByIdAsync(request.OrganizationId, cancellationToken)
+        // Load the org with its members so we can deactivate them (cascade).
+        var org = await _db.FindOrganizationWithMembersAsync(request.OrganizationId, cancellationToken)
             ?? throw new NotFoundException("Organization", request.OrganizationId);
 
-        // Soft-delete: stamp the DeletedAtUtc; the AggregateRoot's IsDeleted property flips.
-        // Memberships are not hard-deleted — they remain for audit. They are excluded from
-        // future reads because GetPagedOrganizationsForUserAsync filters on DeletedAtUtc == null.
         var now = DateTimeOffset.UtcNow;
         org.SoftDelete(userId, now);
+
+        // Cascade: deactivate all org members so the tenant can no longer be resolved.
+        // Without this, the TenantResolutionMiddleware would still accept X-Organization-Id
+        // for this org because the membership rows still have IsActive=true.
+        foreach (var member in org.Members)
+        {
+            member.Deactivate(userId, now);
+        }
+
+        // Cascade: soft-delete all projects in this org.
+        var projects = await _db.GetActiveProjectsForOrganizationAsync(request.OrganizationId, cancellationToken);
+        foreach (var project in projects)
+        {
+            project.SoftDelete(userId, now);
+        }
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogWarning(
-            "Organization {OrgId} soft-deleted by user {UserId} at {AtUtc}. " +
-            "Memberships retained for audit; future reads exclude this org.",
-            org.Id, userId, now);
+            "Organization {OrgId} soft-deleted by user {UserId}. " +
+            "All {MemberCount} memberships deactivated; {ProjectCount} projects soft-deleted.",
+            org.Id, userId, org.Members.Count, projects.Count);
         return Unit.Value;
     }
 }

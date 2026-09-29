@@ -26,10 +26,10 @@ public class OrganizationMember : AuditableEntity, ITenantEntity
     /// <summary>
     ///     Hashed invitation token, when the membership is pending acceptance.
     ///     Null when the membership is direct (Owner at org creation) or already accepted.
-    ///     Plaintext never persisted (per Phase 2 directive; ADR-005 §1.5 pattern).
     /// </summary>
     public string? InvitationTokenHash { get; private set; }
 
+    public DateTimeOffset? InvitationExpiresAtUtc { get; private set; }
     public DateTimeOffset? AcceptedAtUtc { get; private set; }
 
     // --- Factories ---
@@ -48,13 +48,15 @@ public class OrganizationMember : AuditableEntity, ITenantEntity
 
     /// <summary>
     ///     Factory for an invited-but-not-yet-accepted membership. The invitation token
-    ///     hash is stored; the plaintext is returned by the caller (who sends it via email).
+    ///     hash is stored; the plaintext is returned by the caller. The expiry is enforced
+    ///     by <see cref="AcceptInvitation" />.
     /// </summary>
     public static OrganizationMember CreatePendingInvite(
         Guid organizationId,
         Guid userId,
         OrganizationRole role,
         string invitationTokenHash,
+        DateTimeOffset expiresAtUtc,
         DateTimeOffset atUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(invitationTokenHash);
@@ -63,6 +65,7 @@ public class OrganizationMember : AuditableEntity, ITenantEntity
 
         var member = CreateInternal(organizationId, userId, role, isActive: false, atUtc);
         member.InvitationTokenHash = invitationTokenHash;
+        member.InvitationExpiresAtUtc = expiresAtUtc;
         return member;
     }
 
@@ -110,18 +113,21 @@ public class OrganizationMember : AuditableEntity, ITenantEntity
 
     /// <summary>
     ///     Accept a pending invitation. Clears the token hash (single-use) and marks active.
+    ///     Returns false if the token doesn't match or has expired.
     /// </summary>
     public bool AcceptInvitation(string presentedTokenHash, DateTimeOffset atUtc)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(presentedTokenHash);
-        if (IsActive) return true; // already accepted — idempotent
+        if (IsActive) return true;
         if (InvitationTokenHash is null) return false;
+        if (InvitationExpiresAtUtc is not null && atUtc >= InvitationExpiresAtUtc) return false;
         if (!string.Equals(InvitationTokenHash, presentedTokenHash, StringComparison.Ordinal))
             return false;
 
         IsActive = true;
         AcceptedAtUtc = atUtc;
         InvitationTokenHash = null;
+        InvitationExpiresAtUtc = null;
         UpdatedAtUtc = atUtc;
         return true;
     }

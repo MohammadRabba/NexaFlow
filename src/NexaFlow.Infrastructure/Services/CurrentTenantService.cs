@@ -68,7 +68,7 @@ public sealed class CurrentTenantService : ICurrentTenantService, ITenantService
     /// <summary>
     ///     Set the resolved tenant. Called by <c>ITenantResolutionStrategy</c> after
     ///     validating that the authenticated user is a member of the requested organization.
-    ///     Public so a background worker or test can set the tenant explicitly.
+    ///     Internal, exposed to Api/Tests via InternalsVisibleTo or test can set the tenant explicitly.
     /// </summary>
     internal void SetTenant(TenantId tenant)
     {
@@ -76,10 +76,6 @@ public sealed class CurrentTenantService : ICurrentTenantService, ITenantService
     }
 
     /// <summary>Reset the tenant. Called by middleware at end-of-scope (defensive).</summary>
-    internal void ClearTenant()
-    {
-        _tenantId = null;
-    }
 
     Guid? ITenantServiceAccessor.OrganizationId => _tenantId?.ToGuid();
 }

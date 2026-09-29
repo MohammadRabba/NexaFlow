@@ -147,9 +147,6 @@ public class Organization : AggregateRoot
 
         var currentOwner = _members.Single(m => m.UserId == OwnerUserId);
 
-        // Order matters: promote the target first, then demote the current Owner.
-        // The aggregate is in an invalid state between these two operations, but
-        // only inside this method — by the time it returns, the invariant is restored.
         target.PromoteToOwner(atUtc);
         currentOwner.DemoteFromOwner(atUtc);
 

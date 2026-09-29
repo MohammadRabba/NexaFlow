@@ -39,11 +39,14 @@ public interface IApplicationDbContext
     Task<(List<Organization> Items, long Total)> GetPagedOrganizationsForUserAsync(
         Guid userId, int page, int pageSize, CancellationToken ct = default);
 
+    /// <summary>Get all active projects in an organization (tracked, for cascade operations).</summary>
+    Task<List<Project>> GetActiveProjectsForOrganizationAsync(Guid organizationId, CancellationToken ct = default);
+
     // Projects + project members (Phase 4)
     /// <summary>
     ///     Load a project with all its active members. Bypasses the global tenant filter —
     /// the caller MUST verify the resolved tenant matches the project's OrganizationId via
-    /// <c>EnsureProjectTenantMatches</c> or equivalent BEFORE trusting the result.
+    /// <c>EnsureMatchesTenantId</c> or equivalent BEFORE trusting the result.
     /// </summary>
     Task<Project?> FindProjectWithMembersAsync(Guid projectId, CancellationToken ct = default);
 
@@ -86,6 +89,13 @@ public interface IApplicationDbContext
     /// <summary>Page the members of a project. Returns total + items.</summary>
     Task<(List<ProjectMember> Items, long Total)> GetPagedProjectMembersAsync(
         Guid projectId, int page, int pageSize, CancellationToken ct = default);
+
+    /// <summary>
+    ///     Get all project memberships for a user in an organization. Used by the
+    /// org-member-removal cascade to clean up orphaned project memberships.
+    /// </summary>
+    Task<List<ProjectMember>> GetProjectMembersForUserInOrgAsync(
+        Guid organizationId, Guid userId, CancellationToken ct = default);
 
     // --- Mutations ---
 

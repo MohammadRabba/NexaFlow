@@ -163,7 +163,7 @@ public sealed class OrganizationMembershipTests
         var memberId = Guid.NewGuid();
         var orgId = Guid.NewGuid();
         const string hash = "token-hash-value";
-        var invite = OrganizationMember.CreatePendingInvite(orgId, memberId, OrganizationRole.Member, hash, Now);
+        var invite = OrganizationMember.CreatePendingInvite(orgId, memberId, OrganizationRole.Member, hash, Now.AddDays(1), Now);
 
         var accepted = invite.AcceptInvitation(hash, Now);
 
@@ -177,7 +177,7 @@ public sealed class OrganizationMembershipTests
     public void AcceptInvitation_with_mismatched_hash_returns_false()
     {
         var invite = OrganizationMember.CreatePendingInvite(
-            Guid.NewGuid(), Guid.NewGuid(), OrganizationRole.Member, "real-hash", Now);
+            Guid.NewGuid(), Guid.NewGuid(), OrganizationRole.Member, "real-hash", Now.AddDays(1), Now);
 
         var accepted = invite.AcceptInvitation("wrong-hash", Now);
 
@@ -190,7 +190,23 @@ public sealed class OrganizationMembershipTests
     public void CreatePendingInvite_rejects_Owner_role()
     {
         var act = () => OrganizationMember.CreatePendingInvite(
-            Guid.NewGuid(), Guid.NewGuid(), OrganizationRole.Owner, "hash", Now);
+            Guid.NewGuid(), Guid.NewGuid(), OrganizationRole.Owner, "hash", Now.AddDays(1), Now);
         act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public void AcceptInvitation_with_expired_token_returns_false()
+    {
+        var memberId = Guid.NewGuid();
+        var orgId = Guid.NewGuid();
+        const string hash = "token-hash-value";
+        // Token expired 1 hour ago.
+        var invite = OrganizationMember.CreatePendingInvite(orgId, memberId, OrganizationRole.Member, hash, Now.AddHours(-1), Now.AddHours(-2));
+
+        var accepted = invite.AcceptInvitation(hash, Now);
+
+        accepted.Should().BeFalse();
+        invite.IsActive.Should().BeFalse();
+        invite.InvitationTokenHash.Should().Be(hash);
     }
 }

@@ -130,6 +130,15 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         return (items, total);
     }
 
+    async Task<List<Project>> IApplicationDbContext.GetActiveProjectsForOrganizationAsync(
+        Guid organizationId, CancellationToken ct)
+    {
+        return await Projects
+            .IgnoreQueryFilters()
+            .Where(p => p.OrganizationId == organizationId && !p.IsDeleted)
+            .ToListAsync(ct);
+    }
+
     async Task<Project?> IApplicationDbContext.FindProjectWithMembersAsync(Guid projectId, CancellationToken ct)
     {
         // Bypass the tenant filter: the caller (handler) must verify the resolved tenant
@@ -222,10 +231,9 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                            && m.UserId == userId
                         select p;
 
-        // Apply distinct — a user has one membership per project, but the JOIN may
         // produce duplicates if the user has multiple rows for the same project (shouldn't
         // happen due to the unique constraint, but defensive).
-        var query = baseQuery.Distinct();
+        var query = baseQuery;
 
         if (statusFilter.HasValue)
         {
@@ -269,6 +277,15 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
             .Take(pageSize)
             .ToListAsync(ct);
         return (items, total);
+    }
+
+    async Task<List<ProjectMember>> IApplicationDbContext.GetProjectMembersForUserInOrgAsync(
+        Guid organizationId, Guid userId, CancellationToken ct)
+    {
+        return await ProjectMembers
+            .IgnoreQueryFilters()
+            .Where(m => m.OrganizationId == organizationId && m.UserId == userId)
+            .ToListAsync(ct);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
