@@ -128,11 +128,3 @@ internal sealed class FakeEmailService : IEmailService
         return Task.CompletedTask;
     }
 }
-
-internal sealed class FakeCurrentUserService : ICurrentUserService
-{
-    public Guid? UserId { get; set; }
-    public bool IsAuthenticated { get; set; }
-    public string? IPAddress { get; set; } = "127.0.0.1";
-    public string? TraceId { get; set; } = "test-trace";
-}

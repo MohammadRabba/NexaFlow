@@ -67,6 +67,22 @@ public interface IApplicationDbContext
         int pageSize,
         CancellationToken ct = default);
 
+    /// <summary>
+    ///     Page the projects in an organization that the given user is a member of.
+    /// Same filters/sorting as <see cref="GetPagedProjectsAsync" /> but the result is
+    /// additionally constrained to projects where the user has a project_members row.
+    /// </summary>
+    Task<(List<Project> Items, long Total)> GetPagedProjectsForUserAsync(
+        Guid organizationId,
+        Guid userId,
+        ProjectStatus? statusFilter,
+        string? nameSearch,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
+
     /// <summary>Page the members of a project. Returns total + items.</summary>
     Task<(List<ProjectMember> Items, long Total)> GetPagedProjectMembersAsync(
         Guid projectId, int page, int pageSize, CancellationToken ct = default);

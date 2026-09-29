@@ -23,11 +23,16 @@ public static class ServiceCollectionExtensions
             cfg.RegisterServicesFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
-            // TransactionBehavior will be added in Phase 4 (when transactions are first needed).
+            // TransactionBehavior will be added when transactions are first needed.
         });
 
         // FluentValidation — auto-register all IValidator<> implementations in the Application layer.
         services.AddValidatorsFromAssembly(typeof(ServiceCollectionExtensions).Assembly);
+
+        // Phase 4: shared project-access helper used by the project mutation handlers.
+        // Stateless function-bag — registered as a singleton, but each handler gets its own
+        // scoped dependencies via constructor injection.
+        services.AddScoped<Features.Projects.Commands.ProjectAccess>();
 
         return services;
     }

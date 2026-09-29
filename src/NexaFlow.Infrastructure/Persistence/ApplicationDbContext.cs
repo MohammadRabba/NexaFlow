@@ -201,6 +201,62 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         return (items, total);
     }
 
+    async Task<(List<Project> Items, long Total)> IApplicationDbContext.GetPagedProjectsForUserAsync(
+        Guid organizationId,
+        Guid userId,
+        ProjectStatus? statusFilter,
+        string? nameSearch,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        // JOIN projects → project_members by (project_id) → filter on user_id.
+        // The global tenant filter applies to both Projects and ProjectMembers, so the
+        // ambient tenant is enforced. We additionally pass organizationId explicitly.
+        var baseQuery = from p in Projects
+                        join m in ProjectMembers on p.Id equals m.ProjectId
+                        where p.OrganizationId == organizationId
+                           && !p.IsDeleted
+                           && m.UserId == userId
+                        select p;
+
+        // Apply distinct — a user has one membership per project, but the JOIN may
+        // produce duplicates if the user has multiple rows for the same project (shouldn't
+        // happen due to the unique constraint, but defensive).
+        var query = baseQuery.Distinct();
+
+        if (statusFilter.HasValue)
+        {
+            query = query.Where(p => p.Status == statusFilter.Value);
+        }
+        if (!string.IsNullOrWhiteSpace(nameSearch))
+        {
+            query = query.Where(p => EF.Functions.ILike(p.Name, $"%{nameSearch}%"));
+        }
+
+        query = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("name", true) => query.OrderByDescending(p => p.Name),
+            ("name", false) => query.OrderBy(p => p.Name),
+            ("status", true) => query.OrderByDescending(p => p.Status),
+            ("status", false) => query.OrderBy(p => p.Status),
+            ("duedate", true) => query.OrderByDescending(p => p.DueDateUtc),
+            ("duedate", false) => query.OrderBy(p => p.DueDateUtc),
+            ("createdat", true) => query.OrderByDescending(p => p.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(p => p.CreatedAtUtc),
+            _ => query.OrderByDescending(p => p.CreatedAtUtc)
+        };
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
     async Task<(List<ProjectMember> Items, long Total)> IApplicationDbContext.GetPagedProjectMembersAsync(
         Guid projectId, int page, int pageSize, CancellationToken ct)
     {

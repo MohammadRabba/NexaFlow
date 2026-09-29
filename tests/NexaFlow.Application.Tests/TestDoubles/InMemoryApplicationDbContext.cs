@@ -149,6 +149,48 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
         return Task.FromResult((items, total));
     }
 
+    public Task<(List<Project> Items, long Total)> GetPagedProjectsForUserAsync(
+        Guid organizationId,
+        Guid userId,
+        ProjectStatus? statusFilter,
+        string? nameSearch,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var projectIdsForUser = ProjectMembers
+            .Where(m => m.UserId == userId)
+            .Select(m => m.ProjectId)
+            .ToHashSet();
+
+        var query = Projects
+            .Where(p => p.OrganizationId == organizationId
+                && !p.IsDeleted
+                && projectIdsForUser.Contains(p.Id));
+        if (statusFilter.HasValue) query = query.Where(p => p.Status == statusFilter.Value);
+        if (!string.IsNullOrWhiteSpace(nameSearch))
+            query = query.Where(p => p.Name.Contains(nameSearch, StringComparison.OrdinalIgnoreCase));
+
+        IEnumerable<Project> ordered = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("name", true) => query.OrderByDescending(p => p.Name),
+            ("name", false) => query.OrderBy(p => p.Name),
+            ("status", true) => query.OrderByDescending(p => p.Status),
+            ("status", false) => query.OrderBy(p => p.Status),
+            ("duedate", true) => query.OrderByDescending(p => p.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("duedate", false) => query.OrderBy(p => p.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("createdat", true) => query.OrderByDescending(p => p.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(p => p.CreatedAtUtc),
+            _ => query.OrderByDescending(p => p.CreatedAtUtc)
+        };
+        var list = ordered.ToList();
+        var total = (long)list.Count;
+        var items = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
     public Task<(List<ProjectMember> Items, long Total)> GetPagedProjectMembersAsync(
         Guid projectId, int page, int pageSize, CancellationToken ct = default)
     {
