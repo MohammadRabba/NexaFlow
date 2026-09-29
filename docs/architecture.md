@@ -172,7 +172,7 @@ Development. Scalar UI serves `/scalar/v1` for interactive exploration.
 | 2 — Authentication | ✅ Complete | Eight auth endpoints, JWT (HS256), refresh-token rotation + family/reuse detection, email verification, password reset, account lockout, tenant-resolution middleware (HTTP), ADR-005. |
 | 3 — Multi-Tenancy | ✅ Complete | Organization CRUD + soft-delete; Membership invite / role update / removal / ownership transfer; Permission model (const strings + role→permission mapping); cross-tenant guard (URL/header mismatch → 404); 8 cross-tenant integration tests (Tests 1-8); ADR-006, ADR-007. |
 | 4 — Projects | ✅ Complete | Project aggregate + state machine; ProjectMember (Owner/Contributor/Reader); resource-level authorization (ProjectAccess helper); CRUD with filtering/sorting/pagination; project member management; migration; 6 project authorization integration tests; ADR-008. |
-| 5 — Tasks | Pending | CRUD, assignment, status transitions, priority, labels, comments, attachments. |
+| 5 — Tasks | ✅ Complete | TaskItem aggregate + state machine (Todo/InProgress/Review/Done/Cancelled); TaskPriority; CRUD with filtering/sorting/pagination; assignee rules (must be project member); resource-level authorization via ProjectAccess; 5 task security integration tests. |
 | 6 — Events & Notifications | Pending | Domain events → Outbox → RabbitMQ, notification worker, SignalR hub. |
 | 7 — Redis | Pending | Caching, cache invalidation, distributed rate limiting. |
 | 8 — Audit Logs | Pending | Full audit record persistence, member-change / role-change / auth-event auditing. |
