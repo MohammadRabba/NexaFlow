@@ -77,7 +77,7 @@ public sealed class AuthenticationFlowTests : IClassFixture<PostgreSqlFixture>
     [Fact]
     public async Task Full_register_login_refresh_logout_flow()
     {
-        if (!_fixture.IsDockerAvailable) { RequireDocker(); return; }
+        if (!_fixture.IsDockerAvailable) { Assert.Fail("Docker unavailable — test implemented but not executed against PostgreSQL in this environment."); return; }
 
         await using var factory = CreateFactory();
         var client = factory.CreateClient();
@@ -135,7 +135,7 @@ public sealed class AuthenticationFlowTests : IClassFixture<PostgreSqlFixture>
     [Fact]
     public async Task Refresh_reuse_should_revoke_entire_family()
     {
-        if (!_fixture.IsDockerAvailable) { RequireDocker(); return; }
+        if (!_fixture.IsDockerAvailable) { Assert.Fail("Docker unavailable — test implemented but not executed against PostgreSQL in this environment."); return; }
 
         await using var factory = CreateFactory();
         var client = factory.CreateClient();
@@ -187,7 +187,7 @@ public sealed class AuthenticationFlowTests : IClassFixture<PostgreSqlFixture>
     [Fact]
     public async Task Lockout_after_max_failed_attempts()
     {
-        if (!_fixture.IsDockerAvailable) { RequireDocker(); return; }
+        if (!_fixture.IsDockerAvailable) { Assert.Fail("Docker unavailable — test implemented but not executed against PostgreSQL in this environment."); return; }
 
         await using var factory = CreateFactory();
         var client = factory.CreateClient();
@@ -229,7 +229,7 @@ public sealed class AuthenticationFlowTests : IClassFixture<PostgreSqlFixture>
     [Fact]
     public async Task Password_reset_should_invalidate_existing_refresh_tokens()
     {
-        if (!_fixture.IsDockerAvailable) { RequireDocker(); return; }
+        if (!_fixture.IsDockerAvailable) { Assert.Fail("Docker unavailable — test implemented but not executed against PostgreSQL in this environment."); return; }
 
         await using var factory = CreateFactory();
         var client = factory.CreateClient();

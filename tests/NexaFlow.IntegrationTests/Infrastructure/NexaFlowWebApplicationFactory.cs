@@ -28,6 +28,8 @@ public sealed class NexaFlowWebApplicationFactory : WebApplicationFactory<Progra
 
     public List<string> SentEmailBodies { get; } = [];
 
+    public TestAuthHelper Auth => new(this);
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
@@ -36,8 +38,6 @@ public sealed class NexaFlowWebApplicationFactory : WebApplicationFactory<Progra
 
         builder.ConfigureServices(services =>
         {
-            // Remove the production DbContext registration and replace with one
-            // that points at the Testcontainers Postgres instance.
             services.RemoveAll<DbContextOptions<ApplicationDbContext>>();
             services.AddDbContext<ApplicationDbContext>(options =>
             {
@@ -46,16 +46,13 @@ public sealed class NexaFlowWebApplicationFactory : WebApplicationFactory<Progra
                     npgsql.MigrationsAssembly(typeof(ApplicationDbContext).Assembly.FullName);
                 });
                 options.UseSnakeCaseNamingConvention();
-                // Disable sensitive data logging in integration tests (production posture).
             });
 
-            // Re-register IEmailService to capture sent emails without actually sending.
             services.RemoveAll<IEmailService>();
             services.AddSingleton<IEmailService>(new CapturingEmailService(SentEmailBodies));
         });
     }
 
-    /// <summary>Apply all pending migrations to the Testcontainers Postgres instance.</summary>
     public async Task ApplyMigrationsAsync()
     {
         if (_postgres is null) return;
