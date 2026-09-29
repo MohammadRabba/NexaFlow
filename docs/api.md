@@ -208,18 +208,103 @@ The `TenantResolutionMiddleware`:
 5. On mismatch or non-membership: 404 (not 403 — to avoid confirming
    the organization exists in another tenant — section 27 leak-avoidance).
 
-## 5. Future Endpoints (Phase 3+)
+## 5. Future Endpoints (Phase 4+)
 
 | Phase | Method | Path | Purpose |
 |---|---|---|---|
-| 3 | `GET` `POST` | `/api/organizations` | List / create organizations |
-| 3 | `GET` `PUT` `DELETE` | `/api/organizations/{id}` | CRUD on a single org |
-| 3 | `GET` `POST` `PUT` `DELETE` | `/api/organizations/{id}/members[/{userId}]` | List / invite / update / remove members |
 | 4 | `GET` `POST` | `/api/projects` | List / create projects |
 | 4 | `GET` `PUT` `DELETE` | `/api/projects/{id}` | CRUD on a single project |
 | 5 | `GET` `POST` | `/api/projects/{projectId}/tasks` | List / create tasks |
 | 5 | `GET` `PUT` `DELETE` | `/api/tasks/{id}` | CRUD on a single task |
 | 6 | (SignalR) | `/hubs/notifications` | Real-time notifications |
+
+## 5.1 Organization Management (Phase 3)
+
+### POST `/api/organizations`
+Create a new organization. The current user becomes the Owner. The slug is
+generated server-side from the name (lowercase, kebab-cased) — the client
+supplies only `name` + an optional `slugSuggestion`.
+
+**Request body:**
+```json
+{ "name": "Acme Inc.", "slugSuggestion": "acme" }
+```
+
+**Response 200:** `OrganizationDto` (id, name, slug, ownerUserId, createdAtUtc)
+**Errors:** `409 ORGANIZATION_SLUG_TAKEN`, `422 VALIDATION`
+
+### GET `/api/organizations`
+Page the organizations the current user belongs to. No `X-Organization-Id`
+header required (the result is scoped server-side to the user's memberships).
+
+**Query:** `?page=1&pageSize=20`
+
+### GET `/api/organizations/{id}`
+Get a single organization. Returns 404 if not found OR if the user is not
+a member (no enumeration leak — same response).
+
+### PUT `/api/organizations/{id}`
+Rename the organization. The slug is immutable (URL identifier).
+Requires `X-Organization-Id` header matching the URL id; the user must hold
+a role granting `organization.update` (Owner or Admin).
+
+**Request body:** `{ "newName": "Acme Renamed" }`
+**Response:** `204 No Content`
+**Errors:** `404 NOT_FOUND`, `422 VALIDATION`
+
+### DELETE `/api/organizations/{id}`
+Soft-delete the organization. The org row remains in the DB (audit trail),
+excluded from future reads. Memberships are retained (also for audit).
+Requires `organization.delete` permission (Owner only).
+
+**Response:** `204 No Content`
+
+## 5.2 Organization Membership (Phase 3)
+
+All endpoints require:
+- `Authorization: Bearer <access-token>`
+- `X-Organization-Id: <org-id>` matching the URL's `{organizationId}` (else 404)
+
+### GET `/api/organizations/{organizationId}/members`
+List the active members. Requires `member.read` (Owner, Admin, Member, Viewer).
+
+### POST `/api/organizations/{organizationId}/members/invite`
+Invite a user by email. The invitee must already be registered. Creates a
+pending membership (IsActive=false) with a hashed invitation token. The
+plaintext token is returned once in the response. Requires `member.invite`
+(Owner, Admin).
+
+**Request body:** `{ "inviteeEmail": "alice@example.com", "role": "Member" }`
+**Response 200:** `InviteSummaryDto` (organizationId, userId, token, expiresAtUtc)
+**Errors:** `404 INVITEE_NOT_REGISTERED`, `409 USER_ALREADY_MEMBER`, `422 VALIDATION`
+
+### PUT `/api/organizations/{organizationId}/members/{userId}`
+Change a member's role. Authorization rules (enforced inline in the handler,
+NOT in the domain):
+- Owner can change anyone's role (except another Owner's — use transfer-ownership)
+- Admin can change Member/Viewer roles, NOT another Admin's
+- Member/Viewer cannot change roles at all
+
+**Request body:** `{ "newRole": "Admin" }`
+**Response:** `204 No Content`
+**Errors:** `403 CANNOT_MODIFY_ADMIN`, `403 INSUFFICIENT_ROLE`, `404 NOT_FOUND`
+
+### DELETE `/api/organizations/{organizationId}/members/{userId}`
+Remove a member. Hard-deletes the membership row (audit logs reference user_id
++ organization_id, not the row, so the trail persists). Authorization rules:
+- Owner cannot self-remove (must transfer ownership first)
+- Non-Owner can self-remove (leave voluntarily)
+- Removing someone else requires Owner or Admin role
+- Admin cannot remove another Admin
+
+**Response:** `204 No Content`
+
+### POST `/api/organizations/{organizationId}/members/transfer-ownership`
+Transfer ownership to an existing member. The current Owner becomes an Admin.
+Only the current Owner can call (live re-check against the aggregate).
+
+**Request body:** `{ "toUserId": "..." }`
+**Response:** `204 No Content`
 
 ## 6. Error Responses
 

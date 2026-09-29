@@ -85,15 +85,39 @@ The membership link between `users` and `organizations`. **Tenant-scoped**
 - `ix_organization_members_user_id` — secondary index on `user_id`
   for "list this user's memberships" queries.
 
-## 3. Future Schema (Phase 2 onward)
+## 3. Future Schema (Phase 4 onward)
 
 | Phase | Tables to add |
 |---|---|
-| 2 — Authentication | `refresh_tokens` (hashed token, expires, revoked, replaced-by) |
 | 4 — Projects | `projects`, `project_members` |
 | 5 — Tasks | `task_items`, `comments`, `labels`, `task_labels`, `attachments` |
 | 6 — Events & Notifications | `outbox_messages`, `notifications` |
 | 8 — Audit Logs | `audit_logs` (partitioned by `organization_id` + `created_at_utc` for archival) |
+
+### Phase 3 Schema Review (no new tables)
+
+Phase 3 reuses the `organizations`, `organization_members`, and `users`
+tables introduced in Phase 1. No schema changes were needed:
+
+- The Organization aggregate's new methods (`AddMember`, `RemoveMember`,
+  `TransferOwnership`) are domain logic — they don't add columns.
+- The `Organization.OwnerUserId` column (Phase 1) is updated atomically
+  by `TransferOwnership`.
+- The `organization_members` row is hard-deleted by `RemoveMember` — audit
+  logs (Phase 8) will reference `user_id` + `organization_id`, not the
+  membership row, so we keep audit trail without keeping a dangling
+  membership.
+- The existing `(organization_id, user_id)` unique constraint prevents
+  concurrent duplicate invites.
+- The existing `ix_organization_members_user_id` index supports
+  "list this user's memberships" queries.
+
+### Phase 3 Concurrency (DEFERRED)
+
+Optimistic concurrency via PostgreSQL's `xmin` system column was
+investigated but DEFERRED — see `OrganizationMemberConfiguration.cs`
+and ADR-006 §"Concurrency" for the rationale. When Docker is available
+in CI, we'll verify the migration applies and re-add the configuration.
 
 ## 4. Multi-Tenancy Enforcement at the Database Layer
 

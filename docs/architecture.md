@@ -170,7 +170,7 @@ Development. Scalar UI serves `/scalar/v1` for interactive exploration.
 |---|---|---|
 | 1 — Foundation | ✅ Complete | Solution, Domain entities, Application abstractions, Infrastructure (DbContext + migrations), Api (Program, middleware, health, OpenAPI), 4 ADRs, Docker, tests. |
 | 2 — Authentication | ✅ Complete | Eight auth endpoints, JWT (HS256), refresh-token rotation + family/reuse detection, email verification, password reset, account lockout, tenant-resolution middleware (HTTP), ADR-005. |
-| 3 — Multi-Tenancy | Pending | Organizations CRUD, memberships, roles, permissions, **cross-tenant isolation integration tests** (using the Testcontainers fixture wired up in Phase 2). |
+| 3 — Multi-Tenancy | ✅ Complete | Organization CRUD + soft-delete; Membership invite / role update / removal / ownership transfer; Permission model (const strings + role→permission mapping); cross-tenant guard (URL/header mismatch → 404); 8 cross-tenant integration tests (Tests 1-8); ADR-006, ADR-007. |
 | 4 — Projects | Pending | CRUD, members, authorization, filtering, sorting, pagination, audit logs, transactional commands. |
 | 5 — Tasks | Pending | CRUD, assignment, status transitions, priority, labels, comments, attachments. |
 | 6 — Events & Notifications | Pending | Domain events → Outbox → RabbitMQ, notification worker, SignalR hub. |
