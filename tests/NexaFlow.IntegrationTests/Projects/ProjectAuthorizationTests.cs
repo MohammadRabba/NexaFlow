@@ -149,7 +149,10 @@ public sealed class ProjectAuthorizationTests : IClassFixture<PostgreSqlFixture>
 
         var createResp = await ownerClient.PostAsJsonAsync("/api/projects", new
         {
-            Name = "Private Project", Description = "", StartDateUtc = (DateTimeOffset?)null, DueDateUtc = (DateTimeOffset?)null
+            Name = "Private Project",
+            Description = "",
+            StartDateUtc = (DateTimeOffset?)null,
+            DueDateUtc = (DateTimeOffset?)null
         });
         var project = await createResp.Content.ReadFromJsonAsync<TestProjectDto>();
 
@@ -188,7 +191,10 @@ public sealed class ProjectAuthorizationTests : IClassFixture<PostgreSqlFixture>
 
         var createResp = await ownerClient.PostAsJsonAsync("/api/projects", new
         {
-            Name = "P1", Description = "", StartDateUtc = (DateTimeOffset?)null, DueDateUtc = (DateTimeOffset?)null
+            Name = "P1",
+            Description = "",
+            StartDateUtc = (DateTimeOffset?)null,
+            DueDateUtc = (DateTimeOffset?)null
         });
         var project = await createResp.Content.ReadFromJsonAsync<TestProjectDto>();
 
@@ -210,8 +216,15 @@ public sealed class ProjectAuthorizationTests : IClassFixture<PostgreSqlFixture>
         readerClient.DefaultRequestHeaders.Add("X-Organization-Id", orgId.ToString());
 
         var resp = await readerClient.PutAsJsonAsync($"/api/projects/{project.Id}",
-            new { NewName = "Hacked", NewDescription = (string?)null, NewStatus = (ProjectStatus?)null, UpdateDates = false,
-                  StartDateUtc = (DateTimeOffset?)null, DueDateUtc = (DateTimeOffset?)null });
+            new
+            {
+                NewName = "Hacked",
+                NewDescription = (string?)null,
+                NewStatus = (ProjectStatus?)null,
+                UpdateDates = false,
+                StartDateUtc = (DateTimeOffset?)null,
+                DueDateUtc = (DateTimeOffset?)null
+            });
         resp.StatusCode.Should().Be(HttpStatusCode.NotFound,
             "Reader cannot update — ProjectAccess requires Contributor minimum role.");
     }
@@ -273,7 +286,10 @@ public sealed class ProjectAuthorizationTests : IClassFixture<PostgreSqlFixture>
 
         var createResp = await client.PostAsJsonAsync("/api/projects", new
         {
-            Name = "P1", Description = "", StartDateUtc = (DateTimeOffset?)null, DueDateUtc = (DateTimeOffset?)null
+            Name = "P1",
+            Description = "",
+            StartDateUtc = (DateTimeOffset?)null,
+            DueDateUtc = (DateTimeOffset?)null
         });
         var project = await createResp.Content.ReadFromJsonAsync<TestProjectDto>();
 
@@ -281,8 +297,15 @@ public sealed class ProjectAuthorizationTests : IClassFixture<PostgreSqlFixture>
         // move the project to a different org. The UpdateProjectCommand only accepts name,
         // description, status, dates — none of which can change OrganizationId.
         var updateResp = await client.PutAsJsonAsync($"/api/projects/{project!.Id}",
-            new { NewName = "Renamed", NewDescription = (string?)null, NewStatus = (ProjectStatus?)null, UpdateDates = false,
-                  StartDateUtc = (DateTimeOffset?)null, DueDateUtc = (DateTimeOffset?)null });
+            new
+            {
+                NewName = "Renamed",
+                NewDescription = (string?)null,
+                NewStatus = (ProjectStatus?)null,
+                UpdateDates = false,
+                StartDateUtc = (DateTimeOffset?)null,
+                DueDateUtc = (DateTimeOffset?)null
+            });
         updateResp.StatusCode.Should().Be(HttpStatusCode.NoContent);
 
         // Verify the project is still in the same org.
