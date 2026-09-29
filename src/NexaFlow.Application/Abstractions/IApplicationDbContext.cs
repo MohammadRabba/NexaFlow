@@ -17,6 +17,7 @@ public interface IApplicationDbContext
     IQueryable<RefreshToken> RefreshTokens { get; }
     IQueryable<Project> Projects { get; }
     IQueryable<ProjectMember> ProjectMembers { get; }
+    IQueryable<TaskItem> Tasks { get; }
 
     // --- Named async queries (thin repository pattern) ---
 
@@ -96,6 +97,31 @@ public interface IApplicationDbContext
     /// </summary>
     Task<List<ProjectMember>> GetProjectMembersForUserInOrgAsync(
         Guid organizationId, Guid userId, CancellationToken ct = default);
+
+    // Tasks (Phase 5)
+
+    /// <summary>
+    ///     Load a task by id (tracked, for mutation). Bypasses the tenant filter —
+    /// the caller must verify the task's ProjectId belongs to the resolved tenant
+    /// via ProjectAccess BEFORE trusting the result.
+    /// </summary>
+    Task<TaskItem?> FindTaskAsync(Guid taskId, CancellationToken ct = default);
+
+    /// <summary>
+    ///     Page the tasks in a project. Filters: status, priority, assignee, due-date range.
+    /// </summary>
+    Task<(List<TaskItem> Items, long Total)> GetPagedTasksAsync(
+        Guid projectId,
+        TaskItemStatus? statusFilter,
+        TaskPriority? priorityFilter,
+        Guid? assigneeFilter,
+        DateTimeOffset? dueBefore,
+        DateTimeOffset? dueAfter,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 
     // --- Mutations ---
 

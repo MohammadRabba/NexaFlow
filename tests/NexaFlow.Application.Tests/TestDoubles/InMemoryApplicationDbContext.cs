@@ -30,6 +30,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public List<RefreshToken> RefreshTokens { get; } = [];
     public List<Project> Projects { get; } = [];
     public List<ProjectMember> ProjectMembers { get; } = [];
+    public List<TaskItem> Tasks { get; } = [];
 
     IQueryable<User> IApplicationDbContext.Users => Users.AsQueryable();
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations.AsQueryable();
@@ -37,6 +38,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens.AsQueryable();
     IQueryable<Project> IApplicationDbContext.Projects => Projects.AsQueryable();
     IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers.AsQueryable();
+    IQueryable<TaskItem> IApplicationDbContext.Tasks => Tasks.AsQueryable();
 
     public Task<User?> FindUserByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.Email.Normalized == normalizedEmail));
@@ -221,6 +223,49 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
         return Task.FromResult(result);
     }
 
+    public Task<TaskItem?> FindTaskAsync(Guid taskId, CancellationToken ct = default)
+    {
+        return Task.FromResult(Tasks.FirstOrDefault(t => t.Id == taskId && !t.IsDeleted));
+    }
+
+    public Task<(List<TaskItem> Items, long Total)> GetPagedTasksAsync(
+        Guid projectId,
+        TaskItemStatus? statusFilter,
+        TaskPriority? priorityFilter,
+        Guid? assigneeFilter,
+        DateTimeOffset? dueBefore,
+        DateTimeOffset? dueAfter,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        var query = Tasks.Where(t => t.ProjectId == projectId && !t.IsDeleted);
+        if (statusFilter.HasValue) query = query.Where(t => t.Status == statusFilter.Value);
+        if (priorityFilter.HasValue) query = query.Where(t => t.Priority == priorityFilter.Value);
+        if (assigneeFilter.HasValue) query = query.Where(t => t.AssigneeId == assigneeFilter.Value);
+        if (dueBefore.HasValue) query = query.Where(t => t.DueDateUtc <= dueBefore.Value);
+        if (dueAfter.HasValue) query = query.Where(t => t.DueDateUtc >= dueAfter.Value);
+
+        IEnumerable<TaskItem> ordered = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("title", true) => query.OrderByDescending(t => t.Title),
+            ("title", false) => query.OrderBy(t => t.Title),
+            ("priority", true) => query.OrderByDescending(t => t.Priority),
+            ("priority", false) => query.OrderBy(t => t.Priority),
+            ("duedate", true) => query.OrderByDescending(t => t.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("duedate", false) => query.OrderBy(t => t.DueDateUtc ?? DateTimeOffset.MaxValue),
+            ("createdat", true) => query.OrderByDescending(t => t.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(t => t.CreatedAtUtc),
+            _ => query.OrderByDescending(t => t.CreatedAtUtc)
+        };
+        var list = ordered.ToList();
+        var total = (long)list.Count;
+        var items = list.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)
@@ -231,6 +276,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case RefreshToken t: RefreshTokens.Add(t); break;
             case Project p: Projects.Add(p); break;
             case ProjectMember pm: ProjectMembers.Add(pm); break;
+            case TaskItem t: Tasks.Add(t); break;
         }
     }
 
@@ -244,6 +290,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case RefreshToken t: RefreshTokens.Remove(t); break;
             case Project p: Projects.Remove(p); break;
             case ProjectMember pm: ProjectMembers.Remove(pm); break;
+            case TaskItem t: Tasks.Remove(t); break;
         }
     }
 

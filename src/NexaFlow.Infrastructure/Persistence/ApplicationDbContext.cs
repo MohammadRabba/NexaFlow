@@ -38,6 +38,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     IQueryable<RefreshToken> IApplicationDbContext.RefreshTokens => RefreshTokens;
     IQueryable<Project> IApplicationDbContext.Projects => Projects;
     IQueryable<ProjectMember> IApplicationDbContext.ProjectMembers => ProjectMembers;
+    IQueryable<TaskItem> IApplicationDbContext.Tasks => Tasks;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -45,6 +46,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Project> Projects => Set<Project>();
     public DbSet<ProjectMember> ProjectMembers => Set<ProjectMember>();
+    public DbSet<TaskItem> Tasks => Set<TaskItem>();
 
     void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class
         => Set<TEntity>().Add(entity);
@@ -286,6 +288,59 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
             .IgnoreQueryFilters()
             .Where(m => m.OrganizationId == organizationId && m.UserId == userId)
             .ToListAsync(ct);
+    }
+
+    Task<TaskItem?> IApplicationDbContext.FindTaskAsync(Guid taskId, CancellationToken ct)
+        => Tasks
+            .IgnoreQueryFilters()
+            .Where(t => !t.IsDeleted)
+            .FirstOrDefaultAsync(t => t.Id == taskId, ct);
+
+    async Task<(List<TaskItem> Items, long Total)> IApplicationDbContext.GetPagedTasksAsync(
+        Guid projectId,
+        TaskItemStatus? statusFilter,
+        TaskPriority? priorityFilter,
+        Guid? assigneeFilter,
+        DateTimeOffset? dueBefore,
+        DateTimeOffset? dueAfter,
+        string? sortBy,
+        bool sortDescending,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        var query = Tasks.Where(t => t.ProjectId == projectId && !t.IsDeleted);
+
+        if (statusFilter.HasValue)
+            query = query.Where(t => t.Status == statusFilter.Value);
+        if (priorityFilter.HasValue)
+            query = query.Where(t => t.Priority == priorityFilter.Value);
+        if (assigneeFilter.HasValue)
+            query = query.Where(t => t.AssigneeId == assigneeFilter.Value);
+        if (dueBefore.HasValue)
+            query = query.Where(t => t.DueDateUtc <= dueBefore.Value);
+        if (dueAfter.HasValue)
+            query = query.Where(t => t.DueDateUtc >= dueAfter.Value);
+
+        query = (sortBy?.ToLowerInvariant(), sortDescending) switch
+        {
+            ("title", true) => query.OrderByDescending(t => t.Title),
+            ("title", false) => query.OrderBy(t => t.Title),
+            ("priority", true) => query.OrderByDescending(t => t.Priority),
+            ("priority", false) => query.OrderBy(t => t.Priority),
+            ("duedate", true) => query.OrderByDescending(t => t.DueDateUtc),
+            ("duedate", false) => query.OrderBy(t => t.DueDateUtc),
+            ("createdat", true) => query.OrderByDescending(t => t.CreatedAtUtc),
+            ("createdat", false) => query.OrderBy(t => t.CreatedAtUtc),
+            _ => query.OrderByDescending(t => t.CreatedAtUtc)
+        };
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
