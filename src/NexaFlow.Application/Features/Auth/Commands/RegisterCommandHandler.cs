@@ -94,7 +94,7 @@ public sealed class RegisterCommandHandler : IRequestHandler<RegisterCommand, Au
             emailVerificationTokenExpiresAtUtc: verificationExpiry,
             createdAtUtc: now);
 
-        user.AddDomainEvent(new UserRegisteredEvent(user.Id, email.Value, now));
+        user.AddDomainEvent(new UserRegisteredEvent(Guid.NewGuid(), user.Id, email.Value, now));
 
         // Stage the new user (caller commits via SaveChangesAsync on the next line).
         _db.Add(user);

@@ -63,7 +63,7 @@ public sealed class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordC
         }
 
         // Raise a domain event — PasswordChangedEvent lets audit logging / outbox handle it.
-        user.AddDomainEvent(new PasswordChangedEvent(
+        user.AddDomainEvent(new PasswordChangedEvent(Guid.NewGuid(),
             UserId: user.Id,
             PasswordChangedAtUtc: user.PasswordChangedAtUtc!.Value,
             OccurredOnUtc: now));

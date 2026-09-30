@@ -60,7 +60,7 @@ public class Organization : AggregateRoot
         var ownerMember = OrganizationMember.CreateAsOwner(org.Id, ownerUserId, createdAtUtc);
         org._members.Add(ownerMember);
 
-        org.AddDomainEvent(new OrganizationCreatedEvent(org.Id, ownerUserId, org.Name, createdAtUtc));
+        org.AddDomainEvent(new OrganizationCreatedEvent(Guid.NewGuid(), org.Id, ownerUserId, org.Name, createdAtUtc));
         return org;
     }
 

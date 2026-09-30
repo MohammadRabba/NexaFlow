@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NexaFlow.Application\NexaFlow.Application.csproj" />
+    <ProjectReference Include="..\..\src\NexaFlow.Infrastructure\NexaFlow.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>

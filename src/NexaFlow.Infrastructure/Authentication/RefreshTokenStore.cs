@@ -105,7 +105,7 @@ public sealed class RefreshTokenStore : IRefreshTokenStore
 
             await RevokeFamilyAsync(presentedToken.UserId, presentedToken.FamilyId, "REUSE_DETECTED", atUtc, cancellationToken);
 
-            presentedToken.AddDomainEvent(new RefreshTokenReuseDetectedEvent(
+            presentedToken.AddDomainEvent(new RefreshTokenReuseDetectedEvent(Guid.NewGuid(),
                 UserId: presentedToken.UserId,
                 TokenFamilyId: presentedToken.FamilyId,
                 PresentedTokenId: presentedToken.Id,

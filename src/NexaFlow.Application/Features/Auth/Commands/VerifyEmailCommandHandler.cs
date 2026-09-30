@@ -48,7 +48,7 @@ public sealed class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailComma
                 "INVALID_VERIFICATION_TOKEN");
         }
 
-        user.AddDomainEvent(new EmailVerifiedEvent(user.Id, now));
+        user.AddDomainEvent(new EmailVerifiedEvent(Guid.NewGuid(), user.Id, now));
 
         await _db.SaveChangesAsync(cancellationToken);
 

@@ -20,6 +20,13 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
         builder.Property(n => n.RelatedEntityType).HasColumnName("related_entity_type").HasMaxLength(64);
         builder.Property(n => n.IsRead).HasColumnName("is_read").IsRequired();
         builder.Property(n => n.ReadAtUtc).HasColumnName("read_at_utc");
+        builder.Property(n => n.SourceEventId).HasColumnName("source_event_id");
+
+        // Unique constraint on SourceEventId — prevents duplicate notifications from
+        // the same domain event under at-least-once delivery (section 19/22).
+        builder.HasIndex(n => n.SourceEventId)
+            .IsUnique()
+            .HasDatabaseName("uq_notifications_source_event_id");
         builder.Property(n => n.DeletedAtUtc).HasColumnName("deleted_at_utc");
         builder.Property(n => n.CreatedAtUtc).HasColumnName("created_at_utc").IsRequired();
         builder.Property(n => n.UpdatedAtUtc).HasColumnName("updated_at_utc").IsRequired();

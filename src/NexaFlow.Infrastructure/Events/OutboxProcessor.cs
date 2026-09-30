@@ -9,9 +9,13 @@ namespace NexaFlow.Infrastructure.Events;
 
 /// <summary>
 ///     Background service that polls the outbox table for unpublished messages and publishes
-///     them to RabbitMQ via <see cref="IMessageBusPublisher" />. Designed for at-least-once
-///     delivery — a message is marked processed only after successful publication.
+///     them to RabbitMQ via <see cref="IMessageBusPublisher" />. At-least-once delivery.
 /// </summary>
+/// <remarks>
+///     Multi-instance safe: uses PostgreSQL's <c>FOR UPDATE SKIP LOCKED</c> via
+///     <c>FromSqlRaw</c> to claim messages atomically. Two concurrent processors
+///     will never process the same message.
+/// </remarks>
 public sealed class OutboxProcessor : IHostedService, IDisposable
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -19,7 +23,6 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
     private readonly OutboxOptions _options;
     private readonly ILogger<OutboxProcessor> _logger;
     private Timer? _timer;
-    static readonly SemaphoreSlim Lock = new(1, 1);
 
     public OutboxProcessor(
         IServiceScopeFactory scopeFactory,
@@ -54,16 +57,22 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
 
     private async void ProcessPendingAsync(object? state)
     {
-        await Lock.WaitAsync();
         try
         {
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
+            // PostgreSQL FOR UPDATE SKIP LOCKED — atomically claims pending messages.
+            // Two concurrent processors (different instances) will each get a distinct set.
+            // EF Core translates .FromSqlRaw with parameterized LINQ correctly.
             var batch = await db.OutboxMessages
-                .Where(m => m.ProcessedOnUtc == null)
-                .OrderBy(m => m.OccurredOnUtc)
-                .Take(_options.BatchSize)
+                .FromSqlRaw("""
+                    SELECT * FROM outbox_messages
+                    WHERE processed_on_utc IS NULL
+                    ORDER BY occurred_on_utc
+                    LIMIT {0}
+                    FOR UPDATE SKIP LOCKED
+                    """, _options.BatchSize)
                 .ToListAsync();
 
             if (batch.Count == 0) return;
@@ -101,16 +110,11 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
         {
             _logger.LogError(ex, "OutboxProcessor error during batch processing.");
         }
-        finally
-        {
-            Lock.Release();
-        }
     }
 
     public void Dispose()
     {
         _timer?.Dispose();
-        Lock.Dispose();
     }
 }
 

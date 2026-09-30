@@ -52,7 +52,7 @@ public sealed class CommentCommandHandlers :
         var comment = Comment.Create(
             task.Id, project.OrganizationId, userId, request.Body, DateTimeOffset.UtcNow);
 
-        comment.AddDomainEvent(new TaskCommentAddedEvent(
+        comment.AddDomainEvent(new TaskCommentAddedEvent(Guid.NewGuid(),
             task.Id, comment.Id, userId, DateTimeOffset.UtcNow));
 
         _db.Add(comment);

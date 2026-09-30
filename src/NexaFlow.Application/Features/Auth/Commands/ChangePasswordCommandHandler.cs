@@ -56,7 +56,7 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
         user.ChangePassword(newHash, now);
 
         // Raise the event — audit log + outbox (Phase 6).
-        user.AddDomainEvent(new PasswordChangedEvent(
+        user.AddDomainEvent(new PasswordChangedEvent(Guid.NewGuid(),
             UserId: user.Id,
             PasswordChangedAtUtc: user.PasswordChangedAtUtc!.Value,
             OccurredOnUtc: now));

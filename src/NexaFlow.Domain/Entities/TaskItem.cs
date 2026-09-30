@@ -63,7 +63,7 @@ public class TaskItem : AggregateRoot, ITenantEntity
             UpdatedAtUtc = atUtc
         };
         task.AddDomainEvent(new TaskCreatedEvent(
-            task.Id, projectId, organizationId, reporterId, task.Title, atUtc));
+            Guid.NewGuid(), task.Id, projectId, organizationId, reporterId, task.Title, atUtc));
         return task;
     }
 
@@ -121,7 +121,7 @@ public class TaskItem : AggregateRoot, ITenantEntity
         Status = target;
         UpdatedAtUtc = atUtc;
         UpdatedByUserId = updatedByUserId;
-        AddDomainEvent(new TaskStatusChangedEvent(Id, fromStatus, target.ToString(), atUtc));
+        AddDomainEvent(new TaskStatusChangedEvent(Guid.NewGuid(), Id, fromStatus, target.ToString(), atUtc));
     }
 
     public void Assign(Guid? assigneeId, Guid? updatedByUserId, DateTimeOffset atUtc)
@@ -132,6 +132,6 @@ public class TaskItem : AggregateRoot, ITenantEntity
         AssigneeId = assigneeId;
         UpdatedAtUtc = atUtc;
         UpdatedByUserId = updatedByUserId;
-        AddDomainEvent(new TaskAssignedEvent(Id, assigneeId, atUtc));
+        AddDomainEvent(new TaskAssignedEvent(Guid.NewGuid(), Id, OrganizationId, Title, assigneeId, atUtc));
     }
 }

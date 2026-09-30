@@ -22,6 +22,9 @@ public class Notification : AggregateRoot, ITenantEntity
     public bool IsRead { get; private set; }
     public DateTimeOffset? ReadAtUtc { get; private set; }
 
+    /// <summary>Stable id of the source domain event. Used for consumer-side idempotency.</summary>
+    public Guid? SourceEventId { get; private set; }
+
     public static Notification Create(
         Guid organizationId,
         Guid recipientUserId,
@@ -30,6 +33,7 @@ public class Notification : AggregateRoot, ITenantEntity
         string? message,
         Guid? relatedEntityId,
         string? relatedEntityType,
+        Guid? sourceEventId,
         DateTimeOffset atUtc)
     {
         if (organizationId == Guid.Empty)
@@ -48,6 +52,7 @@ public class Notification : AggregateRoot, ITenantEntity
             Message = message,
             RelatedEntityId = relatedEntityId,
             RelatedEntityType = relatedEntityType,
+            SourceEventId = sourceEventId,
             IsRead = false,
             CreatedAtUtc = atUtc,
             UpdatedAtUtc = atUtc

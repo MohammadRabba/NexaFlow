@@ -72,9 +72,13 @@ public static class ServiceCollectionExtensions
         services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMq"));
         services.AddSingleton<IMessageBusPublisher, RabbitMqPublisher>();
 
-        // Phase 6: Outbox processor
+        // Phase 6: Outbox processor (multi-instance safe with FOR UPDATE SKIP LOCKED)
         services.Configure<OutboxOptions>(configuration.GetSection("Outbox"));
         services.AddHostedService<OutboxProcessor>();
+
+        // Phase 6: RabbitMQ consumer + event handlers
+        services.AddScoped<IEventHandler<NexaFlow.Domain.Events.Tasks.TaskAssignedEvent>, TaskAssignedEventHandler>();
+        services.AddHostedService<RabbitMqConsumer>();
 
         // Phase 6: Background workers
         services.Configure<WorkerOptions>(configuration.GetSection("Workers"));

@@ -64,6 +64,7 @@ public sealed class DeadlineReminderWorker : BackgroundService
                         message: $"Task '{task.Title}' is due {task.DueDateUtc:yyyy-MM-dd HH:mm} UTC.",
                         relatedEntityId: task.Id,
                         relatedEntityType: "Task",
+                        sourceEventId: null,
                         atUtc: now);
                     db.Add(notif);
                 }
