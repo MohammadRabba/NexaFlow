@@ -21,6 +21,7 @@ public interface IApplicationDbContext
     IQueryable<Label> Labels { get; }
     IQueryable<TaskLabel> TaskLabels { get; }
     IQueryable<Comment> Comments { get; }
+    IQueryable<Notification> Notifications { get; }
 
     // --- Named async queries (thin repository pattern) ---
 
@@ -132,6 +133,10 @@ public interface IApplicationDbContext
     Task<TaskLabel?> FindTaskLabelAsync(Guid taskId, Guid labelId, Guid organizationId, CancellationToken ct = default);
     Task<List<Comment>> GetCommentsForTaskAsync(Guid taskId, CancellationToken ct = default);
     Task<Comment?> FindCommentAsync(Guid commentId, Guid organizationId, CancellationToken ct = default);
+
+    // Notifications (Phase 6)
+    Task<List<Notification>> GetNotificationsForUserAsync(Guid userId, bool unreadOnly, int page, int pageSize, CancellationToken ct = default);
+    Task<Notification?> FindNotificationAsync(Guid notificationId, Guid userId, CancellationToken ct = default);
 
     // --- Mutations ---
 

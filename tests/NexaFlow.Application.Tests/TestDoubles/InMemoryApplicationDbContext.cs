@@ -34,6 +34,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public List<Label> Labels { get; } = [];
     public List<TaskLabel> TaskLabels { get; } = [];
     public List<Comment> Comments { get; } = [];
+    public List<Notification> Notifications { get; } = [];
 
     IQueryable<User> IApplicationDbContext.Users => Users.AsQueryable();
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations.AsQueryable();
@@ -45,6 +46,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     IQueryable<Label> IApplicationDbContext.Labels => Labels.AsQueryable();
     IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels.AsQueryable();
     IQueryable<Comment> IApplicationDbContext.Comments => Comments.AsQueryable();
+    IQueryable<Notification> IApplicationDbContext.Notifications => Notifications.AsQueryable();
 
     public Task<User?> FindUserByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.Email.Normalized == normalizedEmail));
@@ -293,6 +295,18 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public Task<Comment?> FindCommentAsync(Guid commentId, Guid organizationId, CancellationToken ct = default)
         => Task.FromResult(Comments.FirstOrDefault(c => c.Id == commentId && c.OrganizationId == organizationId && !c.IsDeleted));
 
+    public Task<List<Notification>> GetNotificationsForUserAsync(Guid userId, bool unreadOnly, int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = Notifications.Where(n => n.RecipientUserId == userId && !n.IsDeleted);
+        if (unreadOnly) query = query.Where(n => !n.IsRead);
+        var result = query.OrderByDescending(n => n.CreatedAtUtc)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult(result);
+    }
+
+    public Task<Notification?> FindNotificationAsync(Guid notificationId, Guid userId, CancellationToken ct = default)
+        => Task.FromResult(Notifications.FirstOrDefault(n => n.Id == notificationId && n.RecipientUserId == userId && !n.IsDeleted));
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)
@@ -307,6 +321,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Label l: Labels.Add(l); break;
             case TaskLabel tl: TaskLabels.Add(tl); break;
             case Comment c: Comments.Add(c); break;
+            case Notification n: Notifications.Add(n); break;
         }
     }
 
@@ -324,6 +339,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case Label l: Labels.Remove(l); break;
             case TaskLabel tl: TaskLabels.Remove(tl); break;
             case Comment c: Comments.Remove(c); break;
+            case Notification n: Notifications.Remove(n); break;
         }
     }
 

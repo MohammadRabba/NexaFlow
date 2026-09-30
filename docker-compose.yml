@@ -44,8 +44,14 @@ services:
       Cors__AllowedOrigins__0: "http://localhost:5229"
       RateLimit__PermitPerMinute: "100"
       RateLimit__QueueLimit: "0"
+      RabbitMq__Host: "rabbitmq"
+      RabbitMq__Port: "5672"
+      RabbitMq__Username: "nexaflow"
+      RabbitMq__Password: "changeme"
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -55,6 +61,25 @@ services:
       timeout: 3s
       retries: 10
       start_period: 30s
+    restart: unless-stopped
+    networks:
+      - nexaflow
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: nexaflow-rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: nexaflow
+      RABBITMQ_DEFAULT_PASS: changeme
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     restart: unless-stopped
     networks:
       - nexaflow

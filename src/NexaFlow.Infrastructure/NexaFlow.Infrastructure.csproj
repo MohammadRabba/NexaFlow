@@ -61,6 +61,9 @@
     <!-- ASP.NET Core authorization primitives — Infrastructure hosts the PermissionAuthorizationHandler. -->
     <PackageReference Include="Microsoft.AspNetCore.Authorization" />
 
+    <!-- Phase 6: RabbitMQ -->
+    <PackageReference Include="RabbitMQ.Client" />
+
     <!-- Transitive security pins -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />

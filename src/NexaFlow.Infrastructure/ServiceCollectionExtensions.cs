@@ -8,8 +8,10 @@ using NexaFlow.Application.Authorization;
 using NexaFlow.Infrastructure.Authentication;
 using NexaFlow.Infrastructure.Authorization;
 using NexaFlow.Infrastructure.Email;
+using NexaFlow.Infrastructure.Events;
 using NexaFlow.Infrastructure.Persistence;
 using NexaFlow.Infrastructure.Services;
+using NexaFlow.Infrastructure.Workers;
 
 namespace NexaFlow.Infrastructure;
 
@@ -62,6 +64,22 @@ public static class ServiceCollectionExtensions
         // Token services (Phase 2)
         services.AddSingleton<ISecureTokenGenerator, SecureTokenGenerator>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
+
+        // Phase 6: Event serialization (stateless, singleton)
+        services.AddSingleton<IEventSerializer, JsonEventSerializer>();
+
+        // Phase 6: RabbitMQ publisher
+        services.Configure<RabbitMqOptions>(configuration.GetSection("RabbitMq"));
+        services.AddSingleton<IMessageBusPublisher, RabbitMqPublisher>();
+
+        // Phase 6: Outbox processor
+        services.Configure<OutboxOptions>(configuration.GetSection("Outbox"));
+        services.AddHostedService<OutboxProcessor>();
+
+        // Phase 6: Background workers
+        services.Configure<WorkerOptions>(configuration.GetSection("Workers"));
+        services.AddHostedService<DeadlineReminderWorker>();
+        services.AddHostedService<TokenCleanupWorker>();
 
         // Refresh token store — operates against ApplicationDbContext directly.
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();

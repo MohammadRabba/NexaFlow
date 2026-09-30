@@ -5,6 +5,7 @@ using NexaFlow.Application.Abstractions;
 using NexaFlow.Domain.Common;
 using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Enums;
+using NexaFlow.Infrastructure.Events;
 
 namespace NexaFlow.Infrastructure.Persistence;
 
@@ -17,15 +18,18 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentUserService? _currentUser;
     private readonly ITenantServiceAccessor _tenantAccessor;
+    private readonly IEventSerializer? _eventSerializer;
 
     public ApplicationDbContext(
         DbContextOptions<ApplicationDbContext> options,
         ICurrentUserService? currentUser,
-        ITenantServiceAccessor tenantAccessor)
+        ITenantServiceAccessor tenantAccessor,
+        IEventSerializer? eventSerializer = null)
         : base(options)
     {
         _currentUser = currentUser;
         _tenantAccessor = tenantAccessor;
+        _eventSerializer = eventSerializer;
     }
 
     // EF Core's DbSet<T> implements IQueryable<T>, so the IApplicationDbContext contract
@@ -42,6 +46,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     IQueryable<Label> IApplicationDbContext.Labels => Labels;
     IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels;
     IQueryable<Comment> IApplicationDbContext.Comments => Comments;
+    IQueryable<Notification> IApplicationDbContext.Notifications => Notifications;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -53,6 +58,8 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Label> Labels => Set<Label>();
     public DbSet<TaskLabel> TaskLabels => Set<TaskLabel>();
     public DbSet<Comment> Comments => Set<Comment>();
+    public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
+    public DbSet<Notification> Notifications => Set<Notification>();
 
     void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class
         => Set<TEntity>().Add(entity);
@@ -379,6 +386,23 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         => Comments.FirstOrDefaultAsync(
             c => c.Id == commentId && c.OrganizationId == organizationId && !c.IsDeleted, ct);
 
+    async Task<List<Notification>> IApplicationDbContext.GetNotificationsForUserAsync(
+        Guid userId, bool unreadOnly, int page, int pageSize, CancellationToken ct)
+    {
+        var query = Notifications.Where(n => n.RecipientUserId == userId && !n.IsDeleted);
+        if (unreadOnly) query = query.Where(n => !n.IsRead);
+        return await query
+            .OrderByDescending(n => n.CreatedAtUtc)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+    }
+
+    Task<Notification?> IApplicationDbContext.FindNotificationAsync(
+        Guid notificationId, Guid userId, CancellationToken ct)
+        => Notifications.FirstOrDefaultAsync(
+            n => n.Id == notificationId && n.RecipientUserId == userId && !n.IsDeleted, ct);
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Snake_case naming is applied at the DbContextOptionsBuilder level via
@@ -457,6 +481,38 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
                         }
                     }
                     break;
+            }
+        }
+
+        // Phase 6: Transactional Outbox — intercept domain events from tracked aggregates
+        // and create outbox messages in the SAME transaction. This guarantees:
+        // business state change + outbox record succeed atomically, or neither does.
+        if (_eventSerializer is not null)
+        {
+            var domainEvents = new List<(Entity Entity, IDomainEvent Event)>();
+            foreach (var entry in ChangeTracker.Entries<Entity>())
+            {
+                if (entry.Entity.DomainEvents.Count > 0)
+                {
+                    foreach (var evt in entry.Entity.DomainEvents)
+                    {
+                        domainEvents.Add((entry.Entity, evt));
+                    }
+                }
+            }
+
+            foreach (var (entity, evt) in domainEvents)
+            {
+                var (eventType, payload) = _eventSerializer.Serialize(evt);
+                OutboxMessages.Add(new OutboxMessage
+                {
+                    Id = Guid.NewGuid(),
+                    EventType = eventType,
+                    Payload = payload,
+                    OccurredOnUtc = evt.OccurredOnUtc,
+                    AttemptCount = 0
+                });
+                entity.ClearDomainEvents();
             }
         }
 

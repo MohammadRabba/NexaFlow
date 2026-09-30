@@ -7,8 +7,10 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using NexaFlow.Api.Endpoints;
+using NexaFlow.Api.Hubs;
 using NexaFlow.Api.Middleware;
 using NexaFlow.Application;
+using NexaFlow.Application.Abstractions;
 using NexaFlow.Infrastructure;
 using Scalar.AspNetCore;
 using Serilog;
@@ -134,6 +136,10 @@ builder.Services.AddHsts(options =>
     options.MaxAge = TimeSpan.FromDays(365);
 });
 
+// --- Phase 6: SignalR + Notification Pusher ---
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<INotificationPusher, SignalRNotificationPusher>();
+
 var app = builder.Build();
 
 // --- Middleware pipeline (order matters) ---
@@ -168,6 +174,7 @@ app.UseRateLimiter();
 // --- Endpoints ---
 app.MapHealthEndpoints();
 app.MapControllers();
+app.MapHub<NotificationHub>("/hubs/notifications");
 
 app.Run();
 

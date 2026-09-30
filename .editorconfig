@@ -52,6 +52,7 @@ dotnet_diagnostic.CA1873.severity = suggestion      # High-cost log arg evaluati
 dotnet_diagnostic.CA1812.severity = none            # Avoid uninstantiated classes — middleware is instantiated by UseMiddleware<T>() reflection
 dotnet_diagnostic.CA1515.severity = none            # Public types should be internal — too noisy at app root level
 dotnet_diagnostic.CA1031.severity = none            # Catch-all exceptions for fire-and-forget email delivery (deliberate)
+dotnet_diagnostic.CA1711.severity = none            # Rename type not ending in 'EventHandler' — MediatR naming convention
 dotnet_diagnostic.CA1848.severity = suggestion      # Use LoggerMessage delegates (perf micro-opt; OK in app code)
 dotnet_diagnostic.CA2007.severity = suggestion      # Configure await (good for libraries; not strict for app code)
 dotnet_diagnostic.IDE0005.severity = suggestion     # Remove unused usings
