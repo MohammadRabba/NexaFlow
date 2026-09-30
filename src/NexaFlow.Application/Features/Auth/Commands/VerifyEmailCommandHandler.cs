@@ -11,15 +11,18 @@ public sealed class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailComma
 {
     private readonly IApplicationDbContext _db;
     private readonly ISecureTokenGenerator _tokenGenerator;
+    private readonly ICacheService _cache;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
         IApplicationDbContext db,
         ISecureTokenGenerator tokenGenerator,
+        ICacheService cache,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _db = db;
         _tokenGenerator = tokenGenerator;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -51,6 +54,9 @@ public sealed class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailComma
         user.AddDomainEvent(new EmailVerifiedEvent(Guid.NewGuid(), user.Id, now));
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate user cache — EmailVerified changed.
+        await _cache.RemoveAsync($"user:{user.Id}", cancellationToken);
 
         _logger.LogInformation(
             "Email verified for user {UserId} at {AtUtc}.",

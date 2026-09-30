@@ -14,6 +14,7 @@ public sealed class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordC
     private readonly IPasswordHasher _passwordHasher;
     private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly ICacheService _cache;
     private readonly AuthOptions _options;
     private readonly ILogger<ResetPasswordCommandHandler> _logger;
 
@@ -22,6 +23,7 @@ public sealed class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordC
         IPasswordHasher passwordHasher,
         ISecureTokenGenerator tokenGenerator,
         IRefreshTokenStore refreshTokenStore,
+        ICacheService cache,
         IOptions<AuthOptions> options,
         ILogger<ResetPasswordCommandHandler> logger)
     {
@@ -29,6 +31,7 @@ public sealed class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordC
         _passwordHasher = passwordHasher;
         _tokenGenerator = tokenGenerator;
         _refreshTokenStore = refreshTokenStore;
+        _cache = cache;
         _options = options.Value;
         _logger = logger;
     }
@@ -77,6 +80,9 @@ public sealed class ResetPasswordCommandHandler : IRequestHandler<ResetPasswordC
             cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate user cache — password/security state changed.
+        await _cache.RemoveAsync($"user:{user.Id}", cancellationToken);
 
         _logger.LogInformation(
             "Password reset completed for user {UserId} at {AtUtc}. All sessions revoked.",

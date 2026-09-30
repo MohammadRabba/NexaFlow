@@ -14,6 +14,7 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly ICacheService _cache;
     private readonly AuthOptions _options;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
@@ -21,12 +22,14 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
         IApplicationDbContext db,
         IPasswordHasher passwordHasher,
         IRefreshTokenStore refreshTokenStore,
+        ICacheService cache,
         IOptions<AuthOptions> options,
         ILogger<ChangePasswordCommandHandler> logger)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _refreshTokenStore = refreshTokenStore;
+        _cache = cache;
         _options = options.Value;
         _logger = logger;
     }
@@ -73,6 +76,9 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
             cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate user cache — password/security state changed.
+        await _cache.RemoveAsync($"user:{user.Id}", cancellationToken);
 
         _logger.LogInformation(
             "Password changed for user {UserId} at {AtUtc}. All refresh tokens revoked.",
