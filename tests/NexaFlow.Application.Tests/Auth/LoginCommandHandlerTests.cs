@@ -24,6 +24,7 @@ public sealed class LoginCommandHandlerTests
     private readonly FakePasswordHasher _passwordHasher = new();
     private readonly FakeSecureTokenGenerator _tokenGenerator = new();
     private readonly FakeCurrentUserService _currentUser = new();
+    private readonly FakeAuditService _audit = new();
 
     public LoginCommandHandlerTests()
     {
@@ -36,6 +37,7 @@ public sealed class LoginCommandHandlerTests
             passwordHasher: _passwordHasher,
             jwtTokenService: _jwt,
             refreshTokenStore: _refreshStore,
+            audit: _audit,
             options: TestAuthOptions.Default);
 
     private void SeedVerifiedUser(string email = "alice@example.com", string password = "StrongPass1!")

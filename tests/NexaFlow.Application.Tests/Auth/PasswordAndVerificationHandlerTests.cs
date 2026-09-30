@@ -20,6 +20,7 @@ public sealed class PasswordAndVerificationHandlerTests
     private readonly FakeSecureTokenGenerator _tokenGenerator = new();
     private readonly FakeRefreshTokenStore _refreshStore;
     private readonly FakeEmailService _emailService = new();
+    private readonly FakeAuditService _audit = new();
 
     public PasswordAndVerificationHandlerTests()
     {
@@ -113,6 +114,7 @@ public sealed class PasswordAndVerificationHandlerTests
             tokenGenerator: _tokenGenerator,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ResetPasswordCommandHandler>());
 
@@ -144,6 +146,7 @@ public sealed class PasswordAndVerificationHandlerTests
             tokenGenerator: _tokenGenerator,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ResetPasswordCommandHandler>());
 
@@ -171,6 +174,7 @@ public sealed class PasswordAndVerificationHandlerTests
             tokenGenerator: _tokenGenerator,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ResetPasswordCommandHandler>());
 
@@ -197,6 +201,7 @@ public sealed class PasswordAndVerificationHandlerTests
             tokenGenerator: _tokenGenerator,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ResetPasswordCommandHandler>());
 
@@ -225,6 +230,7 @@ public sealed class PasswordAndVerificationHandlerTests
             tokenGenerator: _tokenGenerator,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ResetPasswordCommandHandler>());
 
@@ -257,6 +263,7 @@ public sealed class PasswordAndVerificationHandlerTests
             db: _db,
             tokenGenerator: _tokenGenerator,
             cache: new FakeCacheService(),
+            audit: _audit,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<VerifyEmailCommandHandler>());
 
         // Act
@@ -286,6 +293,7 @@ public sealed class PasswordAndVerificationHandlerTests
             db: _db,
             tokenGenerator: _tokenGenerator,
             cache: new FakeCacheService(),
+            audit: _audit,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<VerifyEmailCommandHandler>());
 
         // Act
@@ -315,6 +323,7 @@ public sealed class PasswordAndVerificationHandlerTests
             db: _db,
             tokenGenerator: _tokenGenerator,
             cache: new FakeCacheService(),
+            audit: _audit,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<VerifyEmailCommandHandler>());
 
         var act = () => handler.Handle(
@@ -345,6 +354,7 @@ public sealed class PasswordAndVerificationHandlerTests
             passwordHasher: _passwordHasher,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ChangePasswordCommandHandler>());
 
@@ -372,6 +382,7 @@ public sealed class PasswordAndVerificationHandlerTests
             passwordHasher: _passwordHasher,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ChangePasswordCommandHandler>());
 
@@ -395,6 +406,7 @@ public sealed class PasswordAndVerificationHandlerTests
             passwordHasher: _passwordHasher,
             refreshTokenStore: _refreshStore,
             cache: new FakeCacheService(),
+            audit: _audit,
             options: TestAuthOptions.Default,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<ChangePasswordCommandHandler>());
 

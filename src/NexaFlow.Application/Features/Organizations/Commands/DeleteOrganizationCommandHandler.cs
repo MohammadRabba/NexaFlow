@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Exceptions;
 
 namespace NexaFlow.Application.Features.Organizations.Commands;
@@ -11,6 +12,7 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly ILogger<DeleteOrganizationCommandHandler> _logger;
 
     public DeleteOrganizationCommandHandler(
@@ -18,12 +20,14 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
         ICacheService cache,
+        IAuditService audit,
         ILogger<DeleteOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
         _cache = cache;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -56,6 +60,13 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
         {
             project.SoftDelete(userId, now);
         }
+
+        // Audit OrganizationDeleted — same transaction as the soft-delete cascade.
+        await _audit.RecordAsync(
+            action: AuditAction.OrganizationDeleted,
+            entity: "Organization",
+            entityId: org.Id,
+            cancellationToken: cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

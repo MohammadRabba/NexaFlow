@@ -31,4 +31,7 @@ public static class Permissions
     public const string TaskCreate = "task.create";
     public const string TaskUpdate = "task.update";
     public const string TaskDelete = "task.delete";
+
+    // Audit log (Phase 8)
+    public const string AuditLogRead = "audit_log.read";
 }

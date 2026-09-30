@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Features.Projects.Commands;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Enums;
 using NexaFlow.Domain.Exceptions;
 
@@ -12,17 +13,20 @@ public sealed class TransferProjectOwnershipCommandHandler : IRequestHandler<Tra
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
+    private readonly IAuditService _audit;
     private readonly ILogger<TransferProjectOwnershipCommandHandler> _logger;
 
     public TransferProjectOwnershipCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess access,
+        IAuditService audit,
         ILogger<TransferProjectOwnershipCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -40,6 +44,16 @@ public sealed class TransferProjectOwnershipCommandHandler : IRequestHandler<Tra
             throw new DomainException("Only the current Owner can transfer ownership.", "NOT_PROJECT_OWNER");
 
         project.TransferOwnership(request.ToUserId, _currentUser.UserId, DateTimeOffset.UtcNow);
+
+        // Audit ProjectOwnershipTransferred — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectOwnershipTransferred,
+            entity: "Project",
+            entityId: project.Id,
+            oldValues: $"{{\"ownerUserId\":\"{_currentUser.UserId}\"}}",
+            newValues: $"{{\"ownerUserId\":\"{request.ToUserId}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogWarning(

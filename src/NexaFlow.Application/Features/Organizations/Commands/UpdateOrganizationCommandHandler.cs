@@ -12,6 +12,7 @@ public sealed class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrg
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly ILogger<UpdateOrganizationCommandHandler> _logger;
 
     public UpdateOrganizationCommandHandler(
@@ -19,12 +20,14 @@ public sealed class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrg
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
         ICacheService cache,
+        IAuditService audit,
         ILogger<UpdateOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
         _cache = cache;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -39,7 +42,18 @@ public sealed class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrg
         var org = await _db.FindOrganizationByIdAsync(request.OrganizationId, cancellationToken)
             ?? throw new NotFoundException(nameof(Organization), request.OrganizationId);
 
+        var oldName = org.Name;
         org.Rename(request.NewName, userId, DateTimeOffset.UtcNow);
+
+        // Audit OrganizationUpdated — same transaction as the rename.
+        await _audit.RecordAsync(
+            action: AuditAction.OrganizationUpdated,
+            entity: "Organization",
+            entityId: org.Id,
+            oldValues: $"{{\"name\":{System.Text.Json.JsonSerializer.Serialize(oldName)}}}",
+            newValues: $"{{\"name\":{System.Text.Json.JsonSerializer.Serialize(request.NewName)}}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         // Phase 7: Invalidate cache

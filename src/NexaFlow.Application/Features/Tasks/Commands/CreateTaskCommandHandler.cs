@@ -14,17 +14,20 @@ public sealed class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _projectAccess;
+    private readonly IAuditService _audit;
     private readonly ILogger<CreateTaskCommandHandler> _logger;
 
     public CreateTaskCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess projectAccess,
+        IAuditService audit,
         ILogger<CreateTaskCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _projectAccess = projectAccess;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -62,6 +65,15 @@ public sealed class CreateTaskCommandHandler : IRequestHandler<CreateTaskCommand
             atUtc: now);
 
         _db.Add(task);
+
+        // Audit TaskCreated — same transaction as the task row.
+        await _audit.RecordAsync(
+            action: AuditAction.TaskCreated,
+            entity: "Task",
+            entityId: task.Id,
+            newValues: $"{{\"projectId\":\"{task.ProjectId}\",\"title\":{System.Text.Json.JsonSerializer.Serialize(task.Title)},\"priority\":\"{task.Priority}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

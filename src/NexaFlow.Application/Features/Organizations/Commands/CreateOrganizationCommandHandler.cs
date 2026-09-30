@@ -12,15 +12,18 @@ public sealed class CreateOrganizationCommandHandler : IRequestHandler<CreateOrg
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
+    private readonly IAuditService _audit;
     private readonly ILogger<CreateOrganizationCommandHandler> _logger;
 
     public CreateOrganizationCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
+        IAuditService audit,
         ILogger<CreateOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -54,6 +57,21 @@ public sealed class CreateOrganizationCommandHandler : IRequestHandler<CreateOrg
 
         var org = Organization.Create(request.Name, slug, userId, now);
         _db.Add(org);
+
+        // Audit OrganizationCreated. The organization is being created by the user —
+        // this is the rare case where the audit row's OrganizationId can be set to the
+        // NEW organization's id (rather than to the ambient tenant, which is null here
+        // because creating an org is a pre-tenant operation). Use the override so the
+        // row is associated with the new org for later retrieval.
+        await _audit.RecordAsync(
+            action: AuditAction.OrganizationCreated,
+            entity: "Organization",
+            entityId: org.Id,
+            newValues: $"{{\"name\":{System.Text.Json.JsonSerializer.Serialize(org.Name)},\"slug\":{System.Text.Json.JsonSerializer.Serialize(org.Slug)},\"ownerUserId\":\"{org.OwnerUserId}\"}}",
+            actorUserIdOverride: userId,
+            organizationIdOverride: org.Id,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

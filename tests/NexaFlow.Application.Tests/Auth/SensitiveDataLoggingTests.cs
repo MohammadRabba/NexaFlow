@@ -50,7 +50,7 @@ public sealed class SensitiveDataLoggingTests
             createdAtUtc: DateTimeOffset.UtcNow);
         db.Users.Add(user);
 
-        var handler = new LoginCommandHandler(db, passwordHasher, jwt, refreshStore, options);
+        var handler = new LoginCommandHandler(db, passwordHasher, jwt, refreshStore, new FakeAuditService(), options);
 
         // Act — attempt a login that will fail (unverified email).
         var ex = await Assert.ThrowsAsync<DomainException>(() => handler.Handle(

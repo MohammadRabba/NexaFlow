@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Enums;
 using NexaFlow.Domain.Exceptions;
 
@@ -12,6 +13,7 @@ public sealed class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectC
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly ILogger<DeleteProjectCommandHandler> _logger;
 
     public DeleteProjectCommandHandler(
@@ -19,12 +21,14 @@ public sealed class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectC
         ICurrentUserService currentUser,
         ProjectAccess access,
         ICacheService cache,
+        IAuditService audit,
         ILogger<DeleteProjectCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
         _cache = cache;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -38,6 +42,14 @@ public sealed class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectC
         var now = DateTimeOffset.UtcNow;
         var userId = _currentUser.UserId!.Value;
         project.SoftDelete(userId, now);
+
+        // Audit ProjectDeleted — same transaction as the soft-delete.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectDeleted,
+            entity: "Project",
+            entityId: project.Id,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         // Phase 7: Invalidate project cache

@@ -75,6 +75,7 @@ public static class RolePermissions
         Permissions.TaskCreate,
         Permissions.TaskUpdate,
         Permissions.TaskDelete,
+        Permissions.AuditLogRead,
     };
 
     private static readonly IReadOnlySet<string> AdminPermissions = new HashSet<string>
@@ -92,6 +93,7 @@ public static class RolePermissions
         Permissions.TaskCreate,
         Permissions.TaskUpdate,
         Permissions.TaskDelete,
+        Permissions.AuditLogRead,
     };
 
     private static readonly IReadOnlySet<string> MemberPermissions = new HashSet<string>

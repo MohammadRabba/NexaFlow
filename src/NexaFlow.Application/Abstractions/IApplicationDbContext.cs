@@ -22,6 +22,7 @@ public interface IApplicationDbContext
     IQueryable<TaskLabel> TaskLabels { get; }
     IQueryable<Comment> Comments { get; }
     IQueryable<Notification> Notifications { get; }
+    IQueryable<AuditLog> AuditLogs { get; }
 
     // --- Named async queries (thin repository pattern) ---
 
@@ -137,6 +138,46 @@ public interface IApplicationDbContext
     // Notifications (Phase 6)
     Task<List<Notification>> GetNotificationsForUserAsync(Guid userId, bool unreadOnly, int page, int pageSize, CancellationToken ct = default);
     Task<Notification?> FindNotificationAsync(Guid notificationId, Guid userId, CancellationToken ct = default);
+
+    // Audit logs (Phase 8)
+
+    /// <summary>
+    ///     Page the audit log for a tenant. Filters:
+    ///     <list type="bullet">
+    ///         <item><paramref name="organizationId" /> — required; auth events with null OrganizationId are NOT included here.</item>
+    ///         <item><paramref name="actionFilter" /> — optional; one of <see cref="Domain.Entities.AuditAction" />.</item>
+    ///         <item><paramref name="userIdFilter" /> — optional; restricts to actions performed by a specific user.</item>
+    ///         <item><paramref name="entityFilter" /> / <paramref name="entityIdFilter" /> — optional; restricts to a specific entity.</item>
+    ///         <item><paramref name="fromUtc" /> / <paramref name="toUtc" /> — optional time window.</item>
+    ///     </list>
+    ///     Results are sorted by <see cref="AuditLog.Timestamp" /> descending (most recent first).
+    /// </summary>
+    Task<(List<AuditLog> Items, long Total)> GetPagedAuditLogsAsync(
+        Guid organizationId,
+        string? actionFilter,
+        Guid? userIdFilter,
+        string? entityFilter,
+        Guid? entityIdFilter,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
+
+    /// <summary>
+    ///     Page the audit log for a single user, ACROSS tenants (used for self-service
+    ///     "my activity" views, primarily for auth events: login / logout / password changes).
+    ///     The Application-layer caller MUST verify that the requesting user is allowed to
+    ///     see the target user's history (self or organization Admin with AuditLog.Read).
+    /// </summary>
+    Task<(List<AuditLog> Items, long Total)> GetPagedAuditLogsForUserAsync(
+        Guid userId,
+        string? actionFilter,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int page,
+        int pageSize,
+        CancellationToken ct = default);
 
     // --- Mutations ---
 

@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Features.Auth.Dtos;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Exceptions;
 using NexaFlow.Domain.ValueObjects;
 
@@ -28,6 +29,7 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResp
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IAuditService _audit;
     private readonly AuthOptions _options;
 
     public LoginCommandHandler(
@@ -35,12 +37,14 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResp
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         IRefreshTokenStore refreshTokenStore,
+        IAuditService audit,
         IOptions<AuthOptions> options)
     {
         _db = db;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _refreshTokenStore = refreshTokenStore;
+        _audit = audit;
         _options = options.Value;
     }
 
@@ -57,6 +61,19 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResp
         if (user is null)
         {
             // Section 8: do not reveal whether the email exists.
+            // Audit LoginFailed — actor is unknown (no user resolved). The audit row
+            // records the attempted login (no password, no payload). Persist BEFORE
+            // throwing so the failure is recorded even though the request fails.
+            await _audit.RecordAsync(
+                action: AuditAction.LoginFailed,
+                entity: "User",
+                entityId: null,
+                oldValues: null,
+                newValues: null,
+                actorUserIdOverride: null,
+                organizationIdOverride: null,
+                cancellationToken: cancellationToken);
+            await _db.SaveChangesAsync(cancellationToken);
             throw new DomainException(InvalidCredentialsMessage, "INVALID_CREDENTIALS");
         }
 
@@ -86,7 +103,20 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResp
                 lockoutDuration: _options.LockoutDuration,
                 atUtc: now);
 
-            // SaveChanges persists the failed-login counter increment.
+            // Audit LoginFailed — actor IS the user (we know who they are, even though
+            // the password was wrong). Persist the failed-login counter AND the audit row
+            // in the same transaction.
+            await _audit.RecordAsync(
+                action: AuditAction.LoginFailed,
+                entity: "User",
+                entityId: user.Id,
+                oldValues: null,
+                newValues: null,
+                actorUserIdOverride: user.Id,
+                organizationIdOverride: null,
+                cancellationToken: cancellationToken);
+
+            // SaveChanges persists the failed-login counter increment + audit row together.
             await _db.SaveChangesAsync(cancellationToken);
 
             throw new DomainException(InvalidCredentialsMessage, "INVALID_CREDENTIALS");
@@ -104,6 +134,17 @@ public sealed class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResp
             createdFromIp: request.IpAddress,
             createdByUserAgent: null,
             cancellationToken);
+
+        // Audit LoginSucceeded — same transaction as the user-state mutation + refresh token.
+        await _audit.RecordAsync(
+            action: AuditAction.LoginSucceeded,
+            entity: "User",
+            entityId: user.Id,
+            oldValues: null,
+            newValues: null,
+            actorUserIdOverride: user.Id,
+            organizationIdOverride: null,
+            cancellationToken: cancellationToken);
 
         // Commit before issuing the access token.
         await _db.SaveChangesAsync(cancellationToken);

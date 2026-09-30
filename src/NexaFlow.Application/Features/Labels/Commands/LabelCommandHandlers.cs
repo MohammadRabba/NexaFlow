@@ -24,17 +24,20 @@ public sealed class LabelCommandHandlers :
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
     private readonly ProjectAccess _projectAccess;
+    private readonly IAuditService _audit;
 
     public LabelCommandHandlers(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
-        ProjectAccess projectAccess)
+        ProjectAccess projectAccess,
+        IAuditService audit)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
         _projectAccess = projectAccess;
+        _audit = audit;
     }
 
     public async Task<Label> Handle(CreateLabelCommand request, CancellationToken cancellationToken)
@@ -42,6 +45,15 @@ public sealed class LabelCommandHandlers :
         var orgId = _currentTenant.RequireTenantId();
         var label = Label.Create(orgId, request.Name, request.Color, DateTimeOffset.UtcNow);
         _db.Add(label);
+
+        // Audit LabelCreated — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.LabelCreated,
+            entity: "Label",
+            entityId: label.Id,
+            newValues: $"{{\"name\":{System.Text.Json.JsonSerializer.Serialize(label.Name)},\"color\":{System.Text.Json.JsonSerializer.Serialize(label.Color ?? string.Empty)}}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
         return label;
     }
@@ -52,6 +64,14 @@ public sealed class LabelCommandHandlers :
         var label = await _db.FindLabelAsync(request.LabelId, orgId, cancellationToken)
             ?? throw new NotFoundException("Label", request.LabelId);
         _db.Remove(label);
+
+        // Audit LabelDeleted — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.LabelDeleted,
+            entity: "Label",
+            entityId: label.Id,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }

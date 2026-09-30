@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using NexaFlow.Application.Abstractions;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Events.Users;
 using NexaFlow.Domain.Exceptions;
 
@@ -15,6 +16,7 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
     private readonly IPasswordHasher _passwordHasher;
     private readonly IRefreshTokenStore _refreshTokenStore;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly AuthOptions _options;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
@@ -23,6 +25,7 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
         IPasswordHasher passwordHasher,
         IRefreshTokenStore refreshTokenStore,
         ICacheService cache,
+        IAuditService audit,
         IOptions<AuthOptions> options,
         ILogger<ChangePasswordCommandHandler> logger)
     {
@@ -30,6 +33,7 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
         _passwordHasher = passwordHasher;
         _refreshTokenStore = refreshTokenStore;
         _cache = cache;
+        _audit = audit;
         _options = options.Value;
         _logger = logger;
     }
@@ -74,6 +78,17 @@ public sealed class ChangePasswordCommandHandler : IRequestHandler<ChangePasswor
             reason: "PASSWORD_CHANGED",
             atUtc: now,
             cancellationToken);
+
+        // Audit PasswordChanged — same transaction as the password update + token revocation.
+        // No payload: NEVER record the old or new password (spec §25 "Be careful with
+        // sensitive information").
+        await _audit.RecordAsync(
+            action: AuditAction.PasswordChanged,
+            entity: "User",
+            entityId: user.Id,
+            actorUserIdOverride: user.Id,
+            organizationIdOverride: null,
+            cancellationToken: cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

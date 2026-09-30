@@ -26,6 +26,7 @@ public sealed class RefreshCommandHandlerTests
     private readonly FakeJwtTokenService _jwt = new();
     private readonly FakeRefreshTokenStore _refreshStore;
     private readonly FakeSecureTokenGenerator _tokenGenerator = new();
+    private readonly FakeAuditService _audit = new();
 
     public RefreshCommandHandlerTests()
     {
@@ -37,6 +38,7 @@ public sealed class RefreshCommandHandlerTests
             db: _db,
             jwtTokenService: _jwt,
             refreshTokenStore: _refreshStore,
+            audit: _audit,
             options: TestAuthOptions.Default);
 
     private User SeedVerifiedUser()
@@ -170,6 +172,8 @@ public sealed class RefreshCommandHandlerTests
         var logoutHandler = new LogoutCommandHandler(
             refreshTokenStore: _refreshStore,
             db: _db,
+            currentUser: new FakeCurrentUserService(),
+            audit: _audit,
             logger: LoggerFactory.Create(_ => { }).CreateLogger<LogoutCommandHandler>());
         await logoutHandler.Handle(new LogoutCommand(initialPlaintext), CancellationToken.None);
 

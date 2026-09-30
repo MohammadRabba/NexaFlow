@@ -13,17 +13,20 @@ public sealed class RemoveProjectMemberCommandHandler : IRequestHandler<RemovePr
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
+    private readonly IAuditService _audit;
     private readonly ILogger<RemoveProjectMemberCommandHandler> _logger;
 
     public RemoveProjectMemberCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess access,
+        IAuditService audit,
         ILogger<RemoveProjectMemberCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -67,6 +70,15 @@ public sealed class RemoveProjectMemberCommandHandler : IRequestHandler<RemovePr
         // removes from the in-aggregate collection, but the row in project_members is
         // still tracked).
         _db.Remove(target);
+
+        // Audit ProjectMemberRemoved — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectMemberRemoved,
+            entity: "ProjectMember",
+            entityId: target.Id,
+            newValues: $"{{\"projectId\":\"{project.Id}\",\"userId\":\"{request.TargetUserId}\",\"role\":\"{target.Role}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

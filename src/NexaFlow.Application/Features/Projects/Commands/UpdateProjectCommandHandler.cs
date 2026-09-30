@@ -13,6 +13,7 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly ILogger<UpdateProjectCommandHandler> _logger;
 
     public UpdateProjectCommandHandler(
@@ -20,12 +21,14 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
         ICurrentUserService currentUser,
         ProjectAccess access,
         ICacheService cache,
+        IAuditService audit,
         ILogger<UpdateProjectCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
         _cache = cache;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -52,6 +55,14 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
 
         if (request.Dates is not null)
             project.SetDates(request.Dates.StartDateUtc, request.Dates.DueDateUtc, userId, now);
+
+        // Audit ProjectUpdated — queue the audit row BEFORE SaveChangesAsync so it
+        // joins the same transaction as the project mutation (spec §14).
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectUpdated,
+            entity: "Project",
+            entityId: project.Id,
+            cancellationToken: cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

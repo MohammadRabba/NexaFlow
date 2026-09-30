@@ -5,6 +5,7 @@ using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Features.Auth.Dtos;
 using NexaFlow.Application.Features.ProjectMembers.Dtos;
 using NexaFlow.Application.Features.Projects.Commands;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Enums;
 using NexaFlow.Domain.Exceptions;
 
@@ -16,6 +17,7 @@ public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectM
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly CacheOptions _cacheOptions;
     private readonly ILogger<AddProjectMemberCommandHandler> _logger;
 
@@ -24,6 +26,7 @@ public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectM
         ICurrentUserService currentUser,
         ProjectAccess access,
         ICacheService cache,
+        IAuditService audit,
         IOptions<CacheOptions> cacheOptions,
         ILogger<AddProjectMemberCommandHandler> logger)
     {
@@ -31,6 +34,7 @@ public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectM
         _currentUser = currentUser;
         _access = access;
         _cache = cache;
+        _audit = audit;
         _cacheOptions = cacheOptions.Value;
         _logger = logger;
     }
@@ -57,6 +61,15 @@ public sealed class AddProjectMemberCommandHandler : IRequestHandler<AddProjectM
             throw new DomainException("User is already a member of this project.", "USER_ALREADY_MEMBER");
 
         var member = project.AddMember(invitee.Id, request.Role, DateTimeOffset.UtcNow);
+
+        // Audit ProjectMemberAdded — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectMemberAdded,
+            entity: "ProjectMember",
+            entityId: member.Id,
+            newValues: $"{{\"projectId\":\"{project.Id}\",\"userId\":\"{invitee.Id}\",\"role\":\"{request.Role}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

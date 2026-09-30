@@ -22,6 +22,7 @@ public sealed class CommentCommandHandlers :
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
     private readonly ProjectAccess _projectAccess;
+    private readonly IAuditService _audit;
     private readonly ILogger<CommentCommandHandlers> _logger;
 
     public CommentCommandHandlers(
@@ -29,12 +30,14 @@ public sealed class CommentCommandHandlers :
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
         ProjectAccess projectAccess,
+        IAuditService audit,
         ILogger<CommentCommandHandlers> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
         _projectAccess = projectAccess;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -56,6 +59,15 @@ public sealed class CommentCommandHandlers :
             task.Id, comment.Id, userId, DateTimeOffset.UtcNow));
 
         _db.Add(comment);
+
+        // Audit CommentCreated — same transaction as the comment row.
+        await _audit.RecordAsync(
+            action: AuditAction.CommentCreated,
+            entity: "Comment",
+            entityId: comment.Id,
+            newValues: $"{{\"taskId\":\"{comment.TaskId}\",\"authorId\":\"{comment.AuthorId}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
         return comment;
     }
@@ -79,6 +91,14 @@ public sealed class CommentCommandHandlers :
             throw new DomainException("Only the comment author can edit.", "NOT_COMMENT_AUTHOR");
 
         comment.Edit(request.NewBody, _currentUser.UserId, DateTimeOffset.UtcNow);
+
+        // Audit CommentUpdated — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.CommentUpdated,
+            entity: "Comment",
+            entityId: comment.Id,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }
@@ -111,6 +131,14 @@ public sealed class CommentCommandHandlers :
         }
 
         comment.SoftDelete(userId, DateTimeOffset.UtcNow);
+
+        // Audit CommentDeleted — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.CommentDeleted,
+            entity: "Comment",
+            entityId: comment.Id,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
         return Unit.Value;
     }

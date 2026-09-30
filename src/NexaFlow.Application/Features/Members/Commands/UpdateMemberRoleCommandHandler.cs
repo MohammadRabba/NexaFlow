@@ -12,17 +12,20 @@ public sealed class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMembe
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IAuditService _audit;
     private readonly ILogger<UpdateMemberRoleCommandHandler> _logger;
 
     public UpdateMemberRoleCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        IAuditService audit,
         ILogger<UpdateMemberRoleCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -76,9 +79,23 @@ public sealed class UpdateMemberRoleCommandHandler : IRequestHandler<UpdateMembe
             }
         }
 
+        // Capture the old role BEFORE mutation for the audit record.
+        var oldRole = target.Role;
+
         // Apply the domain mutation. The domain method already rejects Owner role changes
         // (defense in depth — the domain doesn't trust that authorization caught it).
         target.ChangeRole(request.NewRole, actorId, DateTimeOffset.UtcNow);
+
+        // Audit RoleChanged — same transaction. Payload records the from→to transition
+        // (no secrets). The audit row's OrganizationId comes from the ambient tenant.
+        await _audit.RecordAsync(
+            action: AuditAction.RoleChanged,
+            entity: "OrganizationMember",
+            entityId: target.Id,
+            oldValues: $"{{\"userId\":\"{request.TargetUserId}\",\"role\":\"{oldRole}\"}}",
+            newValues: $"{{\"userId\":\"{request.TargetUserId}\",\"role\":\"{request.NewRole}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

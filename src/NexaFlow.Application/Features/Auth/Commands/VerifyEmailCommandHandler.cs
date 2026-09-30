@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Events.Users;
 using NexaFlow.Domain.Exceptions;
 using NexaFlow.Domain.ValueObjects;
@@ -12,17 +13,20 @@ public sealed class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailComma
     private readonly IApplicationDbContext _db;
     private readonly ISecureTokenGenerator _tokenGenerator;
     private readonly ICacheService _cache;
+    private readonly IAuditService _audit;
     private readonly ILogger<VerifyEmailCommandHandler> _logger;
 
     public VerifyEmailCommandHandler(
         IApplicationDbContext db,
         ISecureTokenGenerator tokenGenerator,
         ICacheService cache,
+        IAuditService audit,
         ILogger<VerifyEmailCommandHandler> logger)
     {
         _db = db;
         _tokenGenerator = tokenGenerator;
         _cache = cache;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -52,6 +56,16 @@ public sealed class VerifyEmailCommandHandler : IRequestHandler<VerifyEmailComma
         }
 
         user.AddDomainEvent(new EmailVerifiedEvent(Guid.NewGuid(), user.Id, now));
+
+        // Audit EmailVerified — same transaction as the user state mutation.
+        // No payload: the verification token itself is a credential-like secret.
+        await _audit.RecordAsync(
+            action: AuditAction.EmailVerified,
+            entity: "User",
+            entityId: user.Id,
+            actorUserIdOverride: user.Id,
+            organizationIdOverride: null,
+            cancellationToken: cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

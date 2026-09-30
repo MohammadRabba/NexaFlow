@@ -164,6 +164,48 @@ distributed Redis-backed limiter when multiple app instances exist.
 .NET 10's built-in document generator serves `/openapi/v1.json` in
 Development. Scalar UI serves `/scalar/v1` for interactive exploration.
 
+### 3.8 Audit Logging (Phase 8)
+
+A dedicated `audit_logs` table records every security- or business-sensitive
+operation (spec §25). The `AuditLog` domain entity is **not** tenant-scoped
+at the EF level — `organization_id` is nullable because auth events (login,
+password change, etc.) occur before tenant resolution. Two Application-layer
+query methods (`GetPagedAuditLogsAsync` / `GetPagedAuditLogsForUserAsync`)
+filter explicitly:
+- the organization-scoped endpoint `/api/audit-logs` returns rows where
+  `organization_id == resolved_tenant` (requires `audit_log.read`
+  permission — granted to Owner + Admin only);
+- the user-scoped endpoint `/api/audit-logs/my-activity` returns rows where
+  `user_id == ambient user` (cross-tenant self-service "my login history"
+  view; available to any authenticated user).
+
+Audit rows are persisted **in the same `SaveChangesAsync` transaction** as
+the business mutation (spec §14 transactional example explicitly lists
+"Create Audit Log" alongside "Create Project + Add Project Member"). The
+`IAuditService.RecordAsync(...)` helper reads ambient user / tenant / IP
+from `ICurrentUserService` + `ICurrentTenantService`, constructs an
+`AuditLog` entity via the `AuditLog.Create(...)` factory, and calls
+`IApplicationDbContext.Add<AuditLog>(entry)`. The handler then calls
+`SaveChangesAsync` once, persisting both the business change and the audit
+row atomically.
+
+For auth events that occur before the ambient context exists (login,
+email verification), the handler passes an explicit `actorUserIdOverride`
+and `organizationIdOverride: null`. For `OrganizationCreated` (a pre-tenant
+operation), the handler passes the new org's id as the override so the
+audit row is associated with the new org.
+
+**Secrets policy (spec §25 "Be careful with sensitive information"):**
+auth events record NO `oldValues` / `newValues` — the action name + entity
+id + timestamp is sufficient context, and there are no safe fields to
+record (passwords, refresh tokens, email-verification tokens are all
+credential-like secrets). Tenant-scoped events (task / project / member
+mutations) record JSON snapshots of relevant fields (e.g., from→to role
+for `RoleChanged`) but never include credential data.
+
+See ADR-011 for the full rationale, including why an asynchronous
+audit-via-RabbitMQ fanout was rejected for Phase 8.
+
 ## 4. Phases
 
 | Phase | Status | Scope |
@@ -175,7 +217,7 @@ Development. Scalar UI serves `/scalar/v1` for interactive exploration.
 | 5 — Tasks | ✅ Complete | TaskItem aggregate + state machine (Todo/InProgress/Review/Done/Cancelled); TaskPriority; CRUD with filtering/sorting/pagination; assignee rules (must be project member); resource-level authorization via ProjectAccess; 5 task security integration tests. |
 | 6 — Events & Notifications | ✅ Complete | Transactional Outbox (SaveChangesAsync intercepts domain events → outbox rows in same transaction); JsonEventSerializer; OutboxProcessor (background polling + RabbitMQ publish); RabbitMqPublisher (durable exchange, persistent messages); Notification entity + persistence; SignalR NotificationHub (authenticated, per-user delivery); DeadlineReminderWorker; TokenCleanupWorker; Notification API; ADR-009. |
 | 7 — Redis | ✅ Complete | RedisCacheService (cache-aside, fail-open); cache keys `organization:{id}`, `project:{id}`; configurable TTL; invalidation on mutations (org update/delete, project update/delete); RedisRateLimiter (INCR+EXPIRE, distributed, fail-open); RedisRateLimitMiddleware; ADR-010; docker-compose Redis service. |
-| 8 — Audit Logs | Pending | Full audit record persistence, member-change / role-change / auth-event auditing. |
+| 8 — Audit Logs | ✅ Complete | AuditLog domain entity (nullable OrganizationId for auth events); IAuditService Application abstraction (transactional Add + SaveChangesAsync); AuditService implementation reading ambient user/tenant/IP; AuditAction constants covering all spec §25 examples + additional spec-mandated operations; AuditLogConfiguration with 4 indexes (org+timestamp, user+timestamp, org+action+timestamp, entity+entityid+timestamp); Phase8_AuditLogs migration; `audit_log.read` permission granted to Owner + Admin; GetAuditLogsQuery + AuditLogsController (org-scoped + my-activity self-service endpoint); audit wired into all auth handlers (Login success/fail, Logout, Password change, EmailVerified, RefreshTokenRotated), member handlers (Invite, Remove, RoleChange, OwnershipTransfer), task handlers (Create, Update, StatusChanged, Delete, Assign), project handlers (Create, Update, Delete), organization handlers (Create, Update, Delete), comment handlers (Create, Edit, Delete), label handlers (Create, Delete), project member handlers (Add, Remove, RoleChange, OwnershipTransfer); ADR-011. |
 | 9 — Observability | Pending | OpenTelemetry tracing + metrics, structured logging sinks. |
 | 10 — Testing | Pending | Tenant isolation, authorization matrix, refresh-token reuse detection, messaging idempotency. |
 | 11 — CI/CD | Pending | Full CI pipeline with integration tests + Docker build + security scans. |

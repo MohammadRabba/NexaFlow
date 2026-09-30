@@ -34,6 +34,11 @@ public static class ServiceCollectionExtensions
         // scoped dependencies via constructor injection.
         services.AddScoped<Features.Projects.Commands.ProjectAccess>();
 
+        // Phase 8: audit-log service. Scoped — reads ambient ICurrentUserService /
+        // ICurrentTenantService and shares the IApplicationDbContext of the calling handler
+        // so audit rows are persisted in the same SaveChangesAsync transaction.
+        services.AddScoped<Abstractions.IAuditService, Audit.AuditService>();
+
         return services;
     }
 

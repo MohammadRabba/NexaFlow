@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Options;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Features.Auth.Dtos;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Exceptions;
 
 namespace NexaFlow.Application.Features.Auth.Commands;
@@ -23,17 +24,20 @@ public sealed class RefreshCommandHandler : IRequestHandler<RefreshCommand, Auth
     private readonly IApplicationDbContext _db;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenStore _refreshTokenStore;
+    private readonly IAuditService _audit;
     private readonly AuthOptions _options;
 
     public RefreshCommandHandler(
         IApplicationDbContext db,
         IJwtTokenService jwtTokenService,
         IRefreshTokenStore refreshTokenStore,
+        IAuditService audit,
         IOptions<AuthOptions> options)
     {
         _db = db;
         _jwtTokenService = jwtTokenService;
         _refreshTokenStore = refreshTokenStore;
+        _audit = audit;
         _options = options.Value;
     }
 
@@ -113,6 +117,17 @@ public sealed class RefreshCommandHandler : IRequestHandler<RefreshCommand, Auth
         }
 
         // Commit the rotation + any of the above revocations.
+        // Audit RefreshTokenRotated — same transaction as the rotation. Records that a new
+        // refresh token was issued (replaces an old one); useful for detecting session
+        // hijacking patterns. No token payloads are recorded.
+        await _audit.RecordAsync(
+            action: AuditAction.RefreshTokenRotated,
+            entity: "RefreshToken",
+            entityId: refreshToken.Id,
+            actorUserIdOverride: user.Id,
+            organizationIdOverride: null,
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         var accessToken = _jwtTokenService.IssueAccessToken(user, now);

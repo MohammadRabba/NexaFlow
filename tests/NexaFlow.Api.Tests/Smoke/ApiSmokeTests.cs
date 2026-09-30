@@ -72,4 +72,27 @@ public sealed class ApiSmokeTests : IClassFixture<WebApplicationFactory<Program>
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
         response.Headers.Contains("X-Trace-Id").Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Audit_logs_endpoint_should_require_authentication()
+    {
+        // Phase 8: /api/audit-logs is [Authorize] — anonymous requests must be 401, not 200.
+        // This protects against accidentally exposing audit data to the public.
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/audit-logs");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task Audit_logs_my_activity_endpoint_should_require_authentication()
+    {
+        // Phase 8: /api/audit-logs/my-activity is [Authorize] — anonymous requests must be 401.
+        var client = _factory.CreateClient();
+
+        var response = await client.GetAsync("/api/audit-logs/my-activity");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
 }

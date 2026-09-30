@@ -162,5 +162,6 @@ public static class ServiceCollectionExtensions
         Permissions.TaskCreate,
         Permissions.TaskUpdate,
         Permissions.TaskDelete,
+        Permissions.AuditLogRead,
     ];
 }

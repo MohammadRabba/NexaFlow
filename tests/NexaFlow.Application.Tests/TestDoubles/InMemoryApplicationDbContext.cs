@@ -35,6 +35,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public List<TaskLabel> TaskLabels { get; } = [];
     public List<Comment> Comments { get; } = [];
     public List<Notification> Notifications { get; } = [];
+    public List<AuditLog> AuditLogsList { get; } = [];
 
     IQueryable<User> IApplicationDbContext.Users => Users.AsQueryable();
     IQueryable<Organization> IApplicationDbContext.Organizations => Organizations.AsQueryable();
@@ -47,6 +48,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels.AsQueryable();
     IQueryable<Comment> IApplicationDbContext.Comments => Comments.AsQueryable();
     IQueryable<Notification> IApplicationDbContext.Notifications => Notifications.AsQueryable();
+    IQueryable<AuditLog> IApplicationDbContext.AuditLogs => AuditLogsList.AsQueryable();
 
     public Task<User?> FindUserByNormalizedEmailAsync(string normalizedEmail, CancellationToken ct = default)
         => Task.FromResult(Users.FirstOrDefault(u => u.Email.Normalized == normalizedEmail));
@@ -307,6 +309,40 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
     public Task<Notification?> FindNotificationAsync(Guid notificationId, Guid userId, CancellationToken ct = default)
         => Task.FromResult(Notifications.FirstOrDefault(n => n.Id == notificationId && n.RecipientUserId == userId && !n.IsDeleted));
 
+    public Task<(List<AuditLog> Items, long Total)> GetPagedAuditLogsAsync(
+        Guid organizationId, string? actionFilter, Guid? userIdFilter,
+        string? entityFilter, Guid? entityIdFilter,
+        DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = AuditLogsList.Where(a => a.OrganizationId == organizationId);
+        if (!string.IsNullOrWhiteSpace(actionFilter)) query = query.Where(a => a.Action == actionFilter);
+        if (userIdFilter.HasValue) query = query.Where(a => a.UserId == userIdFilter.Value);
+        if (!string.IsNullOrWhiteSpace(entityFilter)) query = query.Where(a => a.Entity == entityFilter);
+        if (entityIdFilter.HasValue) query = query.Where(a => a.EntityId == entityIdFilter.Value);
+        if (fromUtc.HasValue) query = query.Where(a => a.Timestamp >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(a => a.Timestamp <= toUtc.Value);
+        query = query.OrderByDescending(a => a.Timestamp);
+        var total = (long)query.LongCount();
+        var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
+    public Task<(List<AuditLog> Items, long Total)> GetPagedAuditLogsForUserAsync(
+        Guid userId, string? actionFilter,
+        DateTimeOffset? fromUtc, DateTimeOffset? toUtc,
+        int page, int pageSize, CancellationToken ct = default)
+    {
+        var query = AuditLogsList.Where(a => a.UserId == userId);
+        if (!string.IsNullOrWhiteSpace(actionFilter)) query = query.Where(a => a.Action == actionFilter);
+        if (fromUtc.HasValue) query = query.Where(a => a.Timestamp >= fromUtc.Value);
+        if (toUtc.HasValue) query = query.Where(a => a.Timestamp <= toUtc.Value);
+        query = query.OrderByDescending(a => a.Timestamp);
+        var total = (long)query.LongCount();
+        var items = query.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Task.FromResult((items, total));
+    }
+
     public void Add<TEntity>(TEntity entity) where TEntity : class
     {
         switch (entity)
@@ -322,6 +358,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case TaskLabel tl: TaskLabels.Add(tl); break;
             case Comment c: Comments.Add(c); break;
             case Notification n: Notifications.Add(n); break;
+            case AuditLog a: AuditLogsList.Add(a); break;
         }
     }
 
@@ -340,6 +377,7 @@ public sealed class InMemoryApplicationDbContext : IApplicationDbContext
             case TaskLabel tl: TaskLabels.Remove(tl); break;
             case Comment c: Comments.Remove(c); break;
             case Notification n: Notifications.Remove(n); break;
+            case AuditLog a: AuditLogsList.Remove(a); break;
         }
     }
 

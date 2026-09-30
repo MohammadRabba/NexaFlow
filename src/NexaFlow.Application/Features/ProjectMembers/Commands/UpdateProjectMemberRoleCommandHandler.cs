@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Features.Projects.Commands;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Enums;
 using NexaFlow.Domain.Exceptions;
 
@@ -12,17 +13,20 @@ public sealed class UpdateProjectMemberRoleCommandHandler : IRequestHandler<Upda
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
+    private readonly IAuditService _audit;
     private readonly ILogger<UpdateProjectMemberRoleCommandHandler> _logger;
 
     public UpdateProjectMemberRoleCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess access,
+        IAuditService audit,
         ILogger<UpdateProjectMemberRoleCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -36,8 +40,19 @@ public sealed class UpdateProjectMemberRoleCommandHandler : IRequestHandler<Upda
         var target = project.Members.FirstOrDefault(m => m.UserId == request.TargetUserId)
             ?? throw new NotFoundException("ProjectMember", request.TargetUserId);
 
+        var oldRole = target.Role;
         // The domain's ChangeRole rejects changing an Owner's role.
         target.ChangeRole(request.NewRole, _currentUser.UserId, DateTimeOffset.UtcNow);
+
+        // Audit ProjectMemberRoleChanged — same transaction.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectMemberRoleChanged,
+            entity: "ProjectMember",
+            entityId: target.Id,
+            oldValues: $"{{\"userId\":\"{request.TargetUserId}\",\"role\":\"{oldRole}\"}}",
+            newValues: $"{{\"userId\":\"{request.TargetUserId}\",\"role\":\"{request.NewRole}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

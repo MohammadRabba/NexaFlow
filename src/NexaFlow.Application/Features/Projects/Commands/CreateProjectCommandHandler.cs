@@ -12,17 +12,20 @@ public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectC
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IAuditService _audit;
     private readonly ILogger<CreateProjectCommandHandler> _logger;
 
     public CreateProjectCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        IAuditService audit,
         ILogger<CreateProjectCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -54,6 +57,15 @@ public sealed class CreateProjectCommandHandler : IRequestHandler<CreateProjectC
         }
 
         _db.Add(project);
+
+        // Audit ProjectCreated — same transaction as the project row.
+        await _audit.RecordAsync(
+            action: AuditAction.ProjectCreated,
+            entity: "Project",
+            entityId: project.Id,
+            newValues: $"{{\"name\":{System.Text.Json.JsonSerializer.Serialize(project.Name)},\"status\":\"{project.Status}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation(

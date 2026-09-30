@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
+using NexaFlow.Domain.Entities;
 using NexaFlow.Domain.Exceptions;
 
 namespace NexaFlow.Application.Features.Members.Commands;
@@ -10,17 +11,20 @@ public sealed class TransferOwnershipCommandHandler : IRequestHandler<TransferOw
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IAuditService _audit;
     private readonly ILogger<TransferOwnershipCommandHandler> _logger;
 
     public TransferOwnershipCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        IAuditService audit,
         ILogger<TransferOwnershipCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -54,6 +58,16 @@ public sealed class TransferOwnershipCommandHandler : IRequestHandler<TransferOw
         // Apply the domain mutation. Organization.TransferOwnership will throw if the target
         // is not a member or is already the Owner.
         org.TransferOwnership(request.ToUserId, actorId, DateTimeOffset.UtcNow);
+
+        // Audit OwnershipTransferred — same transaction. Records the previous + new owner.
+        await _audit.RecordAsync(
+            action: AuditAction.OwnershipTransferred,
+            entity: "Organization",
+            entityId: request.OrganizationId,
+            oldValues: $"{{\"ownerUserId\":\"{actorId}\"}}",
+            newValues: $"{{\"ownerUserId\":\"{request.ToUserId}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         _logger.LogWarning(

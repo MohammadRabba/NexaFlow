@@ -12,17 +12,20 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IAuditService _audit;
     private readonly ILogger<RemoveMemberCommandHandler> _logger;
 
     public RemoveMemberCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        IAuditService audit,
         ILogger<RemoveMemberCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _audit = audit;
         _logger = logger;
     }
 
@@ -109,6 +112,15 @@ public sealed class RemoveMemberCommandHandler : IRequestHandler<RemoveMemberCom
         {
             _db.Remove(pm);
         }
+
+        // Audit MemberRemoved — same transaction as the membership removal + cascade.
+        // Payload records the removed user's role at the time of removal (for forensics).
+        await _audit.RecordAsync(
+            action: AuditAction.MemberRemoved,
+            entity: "OrganizationMember",
+            entityId: target.Id,
+            newValues: $"{{\"userId\":\"{request.TargetUserId}\",\"organizationId\":\"{request.OrganizationId}\",\"role\":\"{target.Role}\"}}",
+            cancellationToken: cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
 

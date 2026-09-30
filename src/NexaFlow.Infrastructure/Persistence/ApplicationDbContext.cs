@@ -47,6 +47,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     IQueryable<TaskLabel> IApplicationDbContext.TaskLabels => TaskLabels;
     IQueryable<Comment> IApplicationDbContext.Comments => Comments;
     IQueryable<Notification> IApplicationDbContext.Notifications => Notifications;
+    IQueryable<AuditLog> IApplicationDbContext.AuditLogs => AuditLogs;
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Organization> Organizations => Set<Organization>();
@@ -60,6 +61,7 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
     public DbSet<Comment> Comments => Set<Comment>();
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     void IApplicationDbContext.Add<TEntity>(TEntity entity) where TEntity : class
         => Set<TEntity>().Add(entity);
@@ -402,6 +404,76 @@ public sealed class ApplicationDbContext : DbContext, IApplicationDbContext
         Guid notificationId, Guid userId, CancellationToken ct)
         => Notifications.FirstOrDefaultAsync(
             n => n.Id == notificationId && n.RecipientUserId == userId && !n.IsDeleted, ct);
+
+    // --- Audit logs (Phase 8) ---
+    // AuditLog is NOT ITenantEntity — no global query filter applies. We filter
+    // explicitly by organization_id (the parameter), so cross-tenant rows are
+    // excluded by the WHERE clause, not by an ambient filter.
+
+    async Task<(List<AuditLog> Items, long Total)> IApplicationDbContext.GetPagedAuditLogsAsync(
+        Guid organizationId,
+        string? actionFilter,
+        Guid? userIdFilter,
+        string? entityFilter,
+        Guid? entityIdFilter,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        var query = AuditLogs.Where(a => a.OrganizationId == organizationId);
+
+        if (!string.IsNullOrWhiteSpace(actionFilter))
+            query = query.Where(a => a.Action == actionFilter);
+        if (userIdFilter.HasValue)
+            query = query.Where(a => a.UserId == userIdFilter.Value);
+        if (!string.IsNullOrWhiteSpace(entityFilter))
+            query = query.Where(a => a.Entity == entityFilter);
+        if (entityIdFilter.HasValue)
+            query = query.Where(a => a.EntityId == entityIdFilter.Value);
+        if (fromUtc.HasValue)
+            query = query.Where(a => a.Timestamp >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(a => a.Timestamp <= toUtc.Value);
+
+        query = query.OrderByDescending(a => a.Timestamp);
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
+
+    async Task<(List<AuditLog> Items, long Total)> IApplicationDbContext.GetPagedAuditLogsForUserAsync(
+        Guid userId,
+        string? actionFilter,
+        DateTimeOffset? fromUtc,
+        DateTimeOffset? toUtc,
+        int page,
+        int pageSize,
+        CancellationToken ct)
+    {
+        var query = AuditLogs.Where(a => a.UserId == userId);
+
+        if (!string.IsNullOrWhiteSpace(actionFilter))
+            query = query.Where(a => a.Action == actionFilter);
+        if (fromUtc.HasValue)
+            query = query.Where(a => a.Timestamp >= fromUtc.Value);
+        if (toUtc.HasValue)
+            query = query.Where(a => a.Timestamp <= toUtc.Value);
+
+        query = query.OrderByDescending(a => a.Timestamp);
+
+        var total = await query.LongCountAsync(ct);
+        var items = await query
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+        return (items, total);
+    }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

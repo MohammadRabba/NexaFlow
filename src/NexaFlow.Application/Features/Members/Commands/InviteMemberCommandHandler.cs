@@ -17,6 +17,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
     private readonly IEmailService _emailService;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly IAuditService _audit;
     private readonly AuthOptions _options;
     private readonly ILogger<InviteMemberCommandHandler> _logger;
 
@@ -26,6 +27,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         IEmailService emailService,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        IAuditService audit,
         IOptions<AuthOptions> options,
         ILogger<InviteMemberCommandHandler> logger)
     {
@@ -34,6 +36,7 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         _emailService = emailService;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _audit = audit;
         _options = options.Value;
         _logger = logger;
     }
@@ -101,6 +104,18 @@ public sealed class InviteMemberCommandHandler : IRequestHandler<InviteMemberCom
         // (invitation pending). AddMember would set them active. The invitation flow
         // has its own state machine.
         _db.Add(invitation);
+
+        // Audit MemberInvited — same transaction as the pending-membership row.
+        // Payload records the proposed role. The invitation token hash is NOT recorded
+        // (it is a credential-like secret). The plaintext token is returned once in the
+        // response and stored only as a hash in the DB.
+        await _audit.RecordAsync(
+            action: AuditAction.MemberInvited,
+            entity: "OrganizationMember",
+            entityId: invitation.Id,
+            newValues: $"{{\"inviteeUserId\":\"{invitee.Id}\",\"role\":\"{request.Role}\"}}",
+            cancellationToken: cancellationToken);
+
         await _db.SaveChangesAsync(cancellationToken);
 
         // Best-effort email — the token is in the DB; the invitee can also accept via
