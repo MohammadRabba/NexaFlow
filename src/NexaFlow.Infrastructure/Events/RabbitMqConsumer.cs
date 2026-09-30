@@ -9,12 +9,24 @@ using RabbitMQ.Client.Events;
 namespace NexaFlow.Infrastructure.Events;
 
 /// <summary>
-///     RabbitMQ consumer. Implements IHostedService for DI lifecycle management.
-///     Reads from the notification queue, deserializes, dispatches to IEventHandler<T>,
-///     ACKs on success, NACKs + requeues on failure. At-least-once delivery.
+///     RabbitMQ consumer with reconnection. Implements IHostedService. On connection loss,
+///     disposes broken channel/connection, waits with configurable backoff, and reconnects.
+///     At-least-once delivery — unacked messages are requeued on connection loss.
 /// </summary>
+/// <remarks>
+///     ACK/NACK semantics:
+///     - Handler success → ACK (message removed from queue)
+///     - Handler failure → NACK + requeue (message redelivered)
+///     - Invalid JSON / unknown type → ACK (discard — poison message, don't retry)
+///     - DB exception → NACK + requeue (transient, retry)
+///     - Duplicate notification → handler catches constraint violation, returns normally → ACK
+///     - SignalR failure → notification already persisted → ACK (best-effort delivery)
+///     - Connection loss → unacked messages requeued by RabbitMQ automatically
+///     - Shutdown → cancel consumer; unacked messages requeued by RabbitMQ
+/// </remarks>
 public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
 {
+    private static readonly JsonSerializerOptions WebOptions = new(JsonSerializerDefaults.Web);
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly RabbitMqOptions _options;
     private readonly ILogger<RabbitMqConsumer> _logger;
@@ -22,6 +34,8 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
     private IChannel? _channel;
     private AsyncEventingBasicConsumer? _consumer;
     private string? _consumerTag;
+    private CancellationTokenSource? _reconnectCts;
+    private bool _disposed;
 
     public RabbitMqConsumer(
         IServiceScopeFactory scopeFactory,
@@ -35,19 +49,72 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        try
+        _reconnectCts = new CancellationTokenSource();
+        _ = ReconnectLoopAsync(_reconnectCts.Token);
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        if (_reconnectCts is not null)
+            await _reconnectCts.CancelAsync();
+        await CleanupConnectionAsync();
+        _logger.LogInformation("RabbitMqConsumer stopped.");
+    }
+
+    /// <summary>
+    ///     Reconnection loop: attempts to connect, starts consuming, and on connection loss
+    ///     disposes broken resources and retries after backoff. Runs until cancelled.
+    /// </summary>
+    private async Task ReconnectLoopAsync(CancellationToken cancellationToken)
+    {
+        var backoff = _options.ReconnectInitialDelay;
+        while (!cancellationToken.IsCancellationRequested)
         {
-            await ConnectAndConsumeAsync(cancellationToken);
+            try
+            {
+                await ConnectAndConsumeAsync(cancellationToken);
+
+                // Wait until connection is lost or shutdown is requested.
+                // The connection's Shutdown event will unblock this.
+                await WaitForConnectionLossAsync(cancellationToken);
+                backoff = _options.ReconnectInitialDelay; // reset on graceful disconnect
+            }
+            catch (OperationCanceledException)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "RabbitMQ connection failed. Retrying in {Backoff}s.",
+                    backoff.TotalSeconds);
+
+                await CleanupConnectionAsync();
+                try
+                {
+                    await Task.Delay(backoff, cancellationToken);
+                }
+                catch (OperationCanceledException) { break; }
+
+                backoff = backoff * 2 < _options.ReconnectMaxDelay ? backoff * 2 : _options.ReconnectMaxDelay;
+            }
         }
-        catch (Exception ex)
+    }
+
+    private async Task WaitForConnectionLossAsync(CancellationToken cancellationToken)
+    {
+        if (_connection is null) return;
+        var tcs = new TaskCompletionSource();
+
+        // RabbitMQ.Client 7.x: IConnection has a ConnectionShutdownAsync event
+        _connection.ConnectionShutdownAsync += (_, _) =>
         {
-            // Don't crash the app if RabbitMQ is unavailable — the OutboxProcessor
-            // will still accumulate messages; when RabbitMQ comes back, restart
-            // the app or the consumer will reconnect on next poll cycle.
-            _logger.LogWarning(ex,
-                "RabbitMqConsumer failed to start — RabbitMQ may be unavailable. " +
-                "Outbox messages will accumulate. Application continues without consumer.");
-        }
+            tcs.TrySetResult();
+            return Task.CompletedTask;
+        };
+
+        using var registration = cancellationToken.Register(() => tcs.TrySetResult());
+        await tcs.Task;
     }
 
     private async Task ConnectAndConsumeAsync(CancellationToken cancellationToken)
@@ -58,7 +125,8 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
             Port = _options.Port,
             UserName = _options.Username,
             Password = _options.Password,
-            VirtualHost = _options.VirtualHost
+            VirtualHost = _options.VirtualHost,
+            RequestedConnectionTimeout = TimeSpan.FromSeconds(10)
         };
 
         _connection = await factory.CreateConnectionAsync(cancellationToken);
@@ -95,18 +163,7 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
             consumer: _consumer,
             cancellationToken: cancellationToken);
 
-        _logger.LogInformation("RabbitMqConsumer started. Queue: {Queue}.", _options.NotificationQueueName);
-    }
-
-    public async Task StopAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("RabbitMqConsumer stopping.");
-        if (_channel is not null && _consumerTag is not null)
-        {
-            try { await _channel.BasicCancelAsync(_consumerTag, cancellationToken: cancellationToken); }
-            catch (Exception ex) { _logger.LogWarning(ex, "Error cancelling consumer."); }
-        }
-        await DisposeAsync();
+        _logger.LogInformation("RabbitMqConsumer connected. Queue: {Queue}.", _options.NotificationQueueName);
     }
 
     private async Task OnMessageReceived(object sender, BasicDeliverEventArgs ea)
@@ -124,20 +181,19 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
 
             if (handler is null || @event is null)
             {
-                _logger.LogWarning("No handler or deserialization failed for {EventType} — discarding.", eventType);
-                if (_channel is not null)
+                // Poison message — ACK to discard. Retrying won't fix invalid JSON
+                // or unknown type.
+                _logger.LogWarning("Discarding poison message: {EventType}.", eventType);
+                if (_channel is not null && _channel.IsOpen)
                     await _channel.BasicAckAsync(deliveryTag, false);
                 return;
             }
 
-            // Invoke handler.HandleAsync via reflection — the handler type is determined
-            // at runtime by the event type. This is safe because ResolveHandler only
-            // resolves types from NexaFlow.Domain.
             var handleMethod = handler.GetType().GetMethod("HandleAsync");
             if (handleMethod is null)
             {
-                _logger.LogError("Handler {HandlerType} has no HandleAsync method.", handler.GetType().Name);
-                if (_channel is not null)
+                _logger.LogError("Handler {HandlerType} has no HandleAsync.", handler.GetType().Name);
+                if (_channel is not null && _channel.IsOpen)
                     await _channel.BasicNackAsync(deliveryTag, false, true);
                 return;
             }
@@ -145,33 +201,51 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
             var task = (Task)handleMethod.Invoke(handler, [@event, CancellationToken.None])!;
             await task;
 
-            if (_channel is not null)
+            // Handler succeeded (including idempotent duplicate) → ACK.
+            if (_channel is not null && _channel.IsOpen)
                 await _channel.BasicAckAsync(deliveryTag, false);
 
             _logger.LogInformation("Processed {EventType}, tag {Tag}.", eventType, deliveryTag);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error processing {EventType}, tag {Tag} — requeueing.", eventType, deliveryTag);
-            if (_channel is not null)
-                await _channel.BasicNackAsync(deliveryTag, false, true);
+            // Handler failed (DB exception, timeout, etc.) → NACK + requeue.
+            _logger.LogError(ex, "Handler failed for {EventType}, tag {Tag} — requeueing.", eventType, deliveryTag);
+            if (_channel is not null && _channel.IsOpen)
+            {
+                try { await _channel.BasicNackAsync(deliveryTag, false, true); }
+                catch (Exception nackEx) { _logger.LogWarning(nackEx, "NACK failed — message may be requeued on reconnect."); }
+            }
         }
     }
 
     private (object? Handler, object? Event) ResolveHandler(IServiceScope scope, string eventType, string payload)
     {
         var eventTypeObj = Type.GetType(eventType, throwOnError: false);
-        if (eventTypeObj is null || !eventTypeObj.Namespace?.StartsWith("NexaFlow.Domain") == true)
+        if (eventTypeObj is null)
+        {
+            _logger.LogWarning("Unknown event type {EventType}.", eventType);
             return (null, null);
+        }
+
+        if (!eventTypeObj.Namespace?.StartsWith("NexaFlow.Domain") == true)
+        {
+            _logger.LogWarning("Event type {EventType} not from NexaFlow.Domain — rejecting.", eventType);
+            return (null, null);
+        }
 
         var handlerInterface = typeof(IEventHandler<>).MakeGenericType(eventTypeObj);
         var handler = scope.ServiceProvider.GetService(handlerInterface);
-        if (handler is null) return (null, null);
+        if (handler is null)
+        {
+            _logger.LogWarning("No IEventHandler<{EventType}> registered.", eventType);
+            return (null, null);
+        }
 
         try
         {
-            var @event = JsonSerializer.Deserialize(payload, eventTypeObj);
-            return (@event is null ? (handler, null) : (handler, @event));
+            var @event = JsonSerializer.Deserialize(payload, eventTypeObj, WebOptions);
+            return @event is null ? (handler, null) : (handler, @event);
         }
         catch (JsonException ex)
         {
@@ -180,9 +254,26 @@ public sealed class RabbitMqConsumer : IHostedService, IAsyncDisposable
         }
     }
 
+    private async Task CleanupConnectionAsync()
+    {
+        try
+        {
+            if (_channel is not null) { await _channel.DisposeAsync(); _channel = null; }
+            if (_connection is not null) { await _connection.DisposeAsync(); _connection = null; }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error cleaning up RabbitMQ connection.");
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
-        if (_channel is not null) await _channel.DisposeAsync();
-        if (_connection is not null) await _connection.DisposeAsync();
+        if (_disposed) return;
+        _disposed = true;
+        if (_reconnectCts is not null)
+            await _reconnectCts.CancelAsync();
+        _reconnectCts?.Dispose();
+        await CleanupConnectionAsync();
     }
 }

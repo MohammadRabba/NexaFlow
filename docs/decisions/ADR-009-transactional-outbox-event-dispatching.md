@@ -99,6 +99,40 @@ the notification is still there for later retrieval via the API.
   requests; retrying would re-execute the entire business operation, not just
   the message publication.
 
+## ACK/NACK Semantics
+
+| Scenario | Action | Rationale |
+|---|---|---|
+| Handler success | ACK | Message processed; remove from queue |
+| Handler failure (DB exception, timeout) | NACK + requeue | Transient; retry |
+| Invalid JSON / unknown event type | ACK (discard) | Poison message; retrying won't help |
+| Duplicate notification (constraint violation) | ACK | Handler catches and returns normally |
+| SignalR push failure | ACK | Notification already persisted; best-effort push |
+| Connection loss | Unacked messages requeued by RabbitMQ | At-least-once redelivery on reconnect |
+| Application shutdown | Cancel consumer; unacked messages requeued | Clean shutdown |
+
+## SignalR Delivery Semantics
+
+The notification is persisted **before** SignalR delivery. If SignalR fails,
+the notification is NOT lost — the user can retrieve it later via the
+Notification API (`GET /api/notifications`). SignalR delivery is best-effort
+and does not roll back notification persistence. This matches section 19:
+"Persist the notification before attempting real-time delivery where appropriate."
+
+## Outbox Transaction Scope
+
+The `OutboxProcessor.ProcessPendingAsync` method:
+1. Calls `BeginTransactionAsync()` — starts an explicit DB transaction
+2. `FromSqlRaw("SELECT ... FOR UPDATE SKIP LOCKED")` — claims rows and holds locks
+3. Publishes each message to RabbitMQ
+4. Updates `ProcessedOnUtc` on successful messages
+5. `SaveChangesAsync()` — writes updates
+6. `CommitAsync()` — releases row locks
+
+The explicit transaction guarantees that `FOR UPDATE SKIP LOCKED` locks span
+from SELECT through UPDATE to COMMIT. Two concurrent processors (different
+instances) will never claim the same message.
+
 ## Consequences
 
 - **Positive**: Business transactions succeed independently of RabbitMQ availability.

@@ -124,4 +124,6 @@ public sealed class RabbitMqOptions
     public string VirtualHost { get; set; } = "/";
     public string ExchangeName { get; set; } = "nexaflow.events";
     public string NotificationQueueName { get; set; } = "nexaflow.notifications";
+    public TimeSpan ReconnectInitialDelay { get; set; } = TimeSpan.FromSeconds(5);
+    public TimeSpan ReconnectMaxDelay { get; set; } = TimeSpan.FromMinutes(1);
 }

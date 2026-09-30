@@ -12,9 +12,9 @@ namespace NexaFlow.Infrastructure.Events;
 ///     them to RabbitMQ via <see cref="IMessageBusPublisher" />. At-least-once delivery.
 /// </summary>
 /// <remarks>
-///     Multi-instance safe: uses PostgreSQL's <c>FOR UPDATE SKIP LOCKED</c> via
-///     <c>FromSqlRaw</c> to claim messages atomically. Two concurrent processors
-///     will never process the same message.
+///     Multi-instance safe: uses PostgreSQL's <c>FOR UPDATE SKIP LOCKED</c> inside an explicit
+///     transaction. The lock spans from SELECT through UPDATE/COMMIT, so two concurrent
+///     processors (different instances) will never claim the same message.
 /// </remarks>
 public sealed class OutboxProcessor : IHostedService, IDisposable
 {
@@ -62,9 +62,11 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
             using var scope = _scopeFactory.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
 
-            // PostgreSQL FOR UPDATE SKIP LOCKED — atomically claims pending messages.
-            // Two concurrent processors (different instances) will each get a distinct set.
-            // EF Core translates .FromSqlRaw with parameterized LINQ correctly.
+            // Explicit transaction — the FOR UPDATE SKIP LOCKED locks must span
+            // from SELECT through UPDATE to COMMIT. Without this, another instance
+            // could select the same rows between our SELECT and our UPDATE.
+            await using var transaction = await db.Database.BeginTransactionAsync();
+
             var batch = await db.OutboxMessages
                 .FromSqlRaw("""
                     SELECT * FROM outbox_messages
@@ -75,7 +77,11 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
                     """, _options.BatchSize)
                 .ToListAsync();
 
-            if (batch.Count == 0) return;
+            if (batch.Count == 0)
+            {
+                await transaction.RollbackAsync();
+                return;
+            }
 
             _logger.LogInformation("Processing {Count} outbox messages.", batch.Count);
 
@@ -105,6 +111,7 @@ public sealed class OutboxProcessor : IHostedService, IDisposable
             }
 
             await db.SaveChangesAsync();
+            await transaction.CommitAsync();
         }
         catch (Exception ex)
         {
