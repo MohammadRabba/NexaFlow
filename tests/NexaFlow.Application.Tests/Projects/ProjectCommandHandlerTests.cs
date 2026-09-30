@@ -112,7 +112,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new UpdateProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
 
         await handler.Handle(
             new UpdateProjectCommand(project.Id, "NewName", null, null, null),
@@ -133,7 +133,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new UpdateProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
 
         // Even though the current user is a member of the org, they are not a member of
         // THIS project — the handler must return 404 (not 403, to avoid enumeration).
@@ -160,7 +160,7 @@ public sealed class ProjectCommandHandlerTests
         // guard must fire — returns 404, not 403.
         var handler = new UpdateProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
 
         var act = () => handler.Handle(
             new UpdateProjectCommand(projectB.Id, "Renamed", null, null, null), CancellationToken.None);
@@ -183,7 +183,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new UpdateProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
 
         var act = () => handler.Handle(
             new UpdateProjectCommand(project.Id, "Renamed", null, null, null), CancellationToken.None);
@@ -200,7 +200,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new UpdateProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<UpdateProjectCommandHandler>());
 
         // Planning → Active is allowed.
         await handler.Handle(
@@ -225,7 +225,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new DeleteProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<DeleteProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<DeleteProjectCommandHandler>());
 
         await handler.Handle(new DeleteProjectCommand(project.Id), CancellationToken.None);
         project.IsDeleted.Should().BeTrue();
@@ -245,7 +245,7 @@ public sealed class ProjectCommandHandlerTests
 
         var handler = new DeleteProjectCommandHandler(
             _db, _currentUser, _access,
-            LoggerFactory.Create(_ => { }).CreateLogger<DeleteProjectCommandHandler>());
+            new FakeCacheService(), LoggerFactory.Create(_ => { }).CreateLogger<DeleteProjectCommandHandler>());
 
         var act = () => handler.Handle(new DeleteProjectCommand(project.Id), CancellationToken.None);
         await act.Should().ThrowAsync<NotFoundException>();

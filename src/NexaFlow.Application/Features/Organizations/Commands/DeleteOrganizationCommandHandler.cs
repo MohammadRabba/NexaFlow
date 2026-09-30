@@ -10,17 +10,20 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly ICacheService _cache;
     private readonly ILogger<DeleteOrganizationCommandHandler> _logger;
 
     public DeleteOrganizationCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        ICacheService cache,
         ILogger<DeleteOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -55,6 +58,11 @@ public sealed class DeleteOrganizationCommandHandler : IRequestHandler<DeleteOrg
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate cache for the org + all its projects.
+        await _cache.RemoveAsync($"organization:{org.Id}", cancellationToken);
+        foreach (var project in projects)
+            await _cache.RemoveAsync($"project:{project.Id}", cancellationToken);
 
         _logger.LogWarning(
             "Organization {OrgId} soft-deleted by user {UserId}. " +

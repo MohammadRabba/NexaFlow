@@ -48,10 +48,13 @@ services:
       RabbitMq__Port: "5672"
       RabbitMq__Username: "nexaflow"
       RabbitMq__Password: "changeme"
+      Redis__ConnectionString: "redis:6379"
     depends_on:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - "8080:8080"
@@ -80,6 +83,21 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+    restart: unless-stopped
+    networks:
+      - nexaflow
+
+  redis:
+    image: redis:7-alpine
+    container_name: nexaflow-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
     networks:
       - nexaflow

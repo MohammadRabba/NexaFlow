@@ -11,17 +11,20 @@ public sealed class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectC
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
+    private readonly ICacheService _cache;
     private readonly ILogger<DeleteProjectCommandHandler> _logger;
 
     public DeleteProjectCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess access,
+        ICacheService cache,
         ILogger<DeleteProjectCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -36,6 +39,9 @@ public sealed class DeleteProjectCommandHandler : IRequestHandler<DeleteProjectC
         var userId = _currentUser.UserId!.Value;
         project.SoftDelete(userId, now);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate project cache
+        await _cache.RemoveAsync($"project:{project.Id}", cancellationToken);
 
         _logger.LogWarning(
             "Project {ProjectId} soft-deleted by user {UserId} at {AtUtc}. " +

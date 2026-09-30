@@ -64,6 +64,9 @@
     <!-- Phase 6: RabbitMQ -->
     <PackageReference Include="RabbitMQ.Client" />
 
+    <!-- Phase 7: Redis -->
+    <PackageReference Include="StackExchange.Redis" />
+
     <!-- Transitive security pins -->
     <PackageReference Include="System.Security.Cryptography.Xml" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" />

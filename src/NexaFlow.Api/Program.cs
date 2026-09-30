@@ -12,6 +12,7 @@ using NexaFlow.Api.Middleware;
 using NexaFlow.Application;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Infrastructure;
+using NexaFlow.Infrastructure.Caching;
 using Scalar.AspNetCore;
 using Serilog;
 
@@ -108,18 +109,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-// --- Rate limiting (section 40 security) ---
-var permitLimit = builder.Configuration.GetValue<int?>("RateLimit:PermitPerMinute") ?? 100;
-var queueLimit = builder.Configuration.GetValue<int?>("RateLimit:QueueLimit") ?? 0;
+// --- Rate limiting (Phase 7: Redis-backed distributed) ---
+// The built-in ASP.NET Core rate limiter uses in-memory state per instance.
+// For multi-instance deployments, a Redis-backed limiter is required (section 23).
+// Implemented as custom middleware instead of fighting the built-in partition API.
 builder.Services.AddRateLimiter(options =>
 {
-    options.AddFixedWindowLimiter("default", limiterOptions =>
-    {
-        limiterOptions.AutoReplenishment = true;
-        limiterOptions.PermitLimit = permitLimit;
-        limiterOptions.Window = TimeSpan.FromMinutes(1);
-        limiterOptions.QueueLimit = queueLimit;
-    });
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     options.OnRejected = (context, _) =>
     {
@@ -169,6 +164,7 @@ app.UseMiddleware<TenantResolutionMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 app.UseCors();
+app.UseMiddleware<RedisRateLimitMiddleware>();
 app.UseRateLimiter();
 
 // --- Endpoints ---

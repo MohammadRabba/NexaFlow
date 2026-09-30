@@ -12,17 +12,20 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ProjectAccess _access;
+    private readonly ICacheService _cache;
     private readonly ILogger<UpdateProjectCommandHandler> _logger;
 
     public UpdateProjectCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ProjectAccess access,
+        ICacheService cache,
         ILogger<UpdateProjectCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _access = access;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -51,6 +54,9 @@ public sealed class UpdateProjectCommandHandler : IRequestHandler<UpdateProjectC
             project.SetDates(request.Dates.StartDateUtc, request.Dates.DueDateUtc, userId, now);
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate project cache
+        await _cache.RemoveAsync($"project:{project.Id}", cancellationToken);
 
         _logger.LogInformation(
             "Project {ProjectId} updated by user {UserId}.",

@@ -11,17 +11,20 @@ public sealed class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrg
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
     private readonly ICurrentTenantService _currentTenant;
+    private readonly ICacheService _cache;
     private readonly ILogger<UpdateOrganizationCommandHandler> _logger;
 
     public UpdateOrganizationCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService currentUser,
         ICurrentTenantService currentTenant,
+        ICacheService cache,
         ILogger<UpdateOrganizationCommandHandler> logger)
     {
         _db = db;
         _currentUser = currentUser;
         _currentTenant = currentTenant;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -29,20 +32,18 @@ public sealed class UpdateOrganizationCommandHandler : IRequestHandler<UpdateOrg
     {
         ArgumentNullException.ThrowIfNull(request);
         if (!_currentUser.IsAuthenticated || _currentUser.UserId is not { } userId)
-        {
             throw new DomainException("Authenticated user required.", "UNAUTHENTICATED");
-        }
 
-        // Cross-tenant guard: URL's organizationId must match the resolved tenant.
         _currentTenant.EnsureMatchesTenantId(request.OrganizationId);
 
         var org = await _db.FindOrganizationByIdAsync(request.OrganizationId, cancellationToken)
             ?? throw new NotFoundException(nameof(Organization), request.OrganizationId);
 
-        // Note: the [Authorize] policy guarantees OrganizationUpdate permission. We don't
-        // re-check the role here. The handler is focused on the domain mutation.
         org.Rename(request.NewName, userId, DateTimeOffset.UtcNow);
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Phase 7: Invalidate cache
+        await _cache.RemoveAsync($"organization:{org.Id}", cancellationToken);
 
         _logger.LogInformation("Organization {OrgId} renamed by user {UserId}.", org.Id, userId);
         return Unit.Value;

@@ -3,15 +3,18 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using NexaFlow.Application.Abstractions;
 using NexaFlow.Application.Authorization;
 using NexaFlow.Infrastructure.Authentication;
 using NexaFlow.Infrastructure.Authorization;
+using NexaFlow.Infrastructure.Caching;
 using NexaFlow.Infrastructure.Email;
 using NexaFlow.Infrastructure.Events;
 using NexaFlow.Infrastructure.Persistence;
 using NexaFlow.Infrastructure.Services;
 using NexaFlow.Infrastructure.Workers;
+using StackExchange.Redis;
 
 namespace NexaFlow.Infrastructure;
 
@@ -84,6 +87,26 @@ public static class ServiceCollectionExtensions
         services.Configure<WorkerOptions>(configuration.GetSection("Workers"));
         services.AddHostedService<DeadlineReminderWorker>();
         services.AddHostedService<TokenCleanupWorker>();
+
+        // Phase 7: Redis caching
+        services.Configure<RedisOptions>(configuration.GetSection("Redis"));
+        services.Configure<CacheOptions>(configuration.GetSection("Redis"));
+        var redisConnStr = configuration.GetSection("Redis:ConnectionString").Value;
+        IConnectionMultiplexer? redisMultiplexer = null;
+        if (!string.IsNullOrEmpty(redisConnStr))
+        {
+            try
+            {
+                redisMultiplexer = ConnectionMultiplexer.Connect(redisConnStr);
+            }
+            catch
+            {
+                // Redis unavailable at startup — caching disabled, rate limiting fails open.
+            }
+        }
+        services.AddSingleton<IConnectionMultiplexer>(_ => redisMultiplexer!);
+        services.AddSingleton<ICacheService, RedisCacheService>();
+        services.AddSingleton<RedisRateLimiter>();
 
         // Refresh token store — operates against ApplicationDbContext directly.
         services.AddScoped<IRefreshTokenStore, RefreshTokenStore>();
