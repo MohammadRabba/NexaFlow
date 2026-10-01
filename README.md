@@ -1,452 +1,533 @@
-# NexaFlow
+🚀 NexaFlow
+Multi-Tenant Project Management SaaS
+NexaFlow is a production-grade .NET 10 backend demonstrating modern enterprise application architecture through:
 
-**Multi-Tenant Project Management SaaS** — Phase 1 (Foundation)
+Clean Architecture
 
-> Portfolio-grade .NET 10 backend demonstrating Clean Architecture,
-> Modular Monolith, CQRS, Domain-Driven Design, multi-tenancy with
-> defense-in-depth, and production-oriented engineering practices.
+Modular Monolith
 
----
+CQRS
 
-## Overview
+Domain-Driven Design (DDD)
 
-NexaFlow is a multi-tenant Project Management SaaS backend. Each tenant
-(an "Organization") is fully isolated from others at the row level;
-authorization is permission-based rather than role-only; and the system
-is designed for incremental evolution across eleven phases.
+Defense-in-depth Multi-Tenancy
 
-**Phase 1 (this repository) implements Foundation:**
-- Clean Architecture with strict dependency direction
-- Domain layer (entities, value objects, enums, events, exceptions)
-- Application layer (abstractions, MediatR behaviors)
-- Infrastructure layer (EF Core + Npgsql, audit stamping, multi-tenant
-  global query filters)
-- Api layer (Program.cs composition root, middleware, health checks,
-  OpenAPI document)
-- Four ADRs documenting the major architectural decisions
-- Production-oriented Dockerfile (non-root user, multi-stage)
-- docker-compose for local development (API + PostgreSQL 16)
-- 37 tests passing across 4 test projects
+Domain Events
 
----
+Automated Testing
 
-## Features
+Production-oriented Infrastructure
 
-### Phase 1 ✅
+NexaFlow is not a CRUD tutorial.
+It is a portfolio-quality system designed to demonstrate how a maintainable, secure, and scalable SaaS backend can evolve from a solid architectural foundation toward enterprise-grade infrastructure.
 
-- ✅ Domain model with strong invariants (`User`, `Organization`,
-  `OrganizationMember`, `Email`, `TenantId`)
-- ✅ Audit stamping via `InternalsVisibleTo` (no public setters; no
-  leakage of audit concerns into Domain)
-- ✅ Domain events queued on aggregates (dispatcher lands in Phase 6)
-- ✅ Centralized EF Core global query filter for `ITenantEntity` —
-  fail-closed when no tenant resolved
-- ✅ `SaveChangesAsync` override that **rejects** mismatched
-  OrganizationId on insert and **rejects** OrganizationId mutations
-  on update
-- ✅ RFC 7807 Problem Details error handling
-- ✅ Serilog structured logging with correlation scope
-- ✅ Per-IP fixed window rate limiting (100 req/min)
-- ✅ Health checks at `/health/live` and `/health/ready`
-- ✅ OpenAPI document at `/openapi/v1.json` + Scalar UI at `/scalar/v1`
-- ✅ Four ADRs documenting decisions (Postgres, Clean Architecture,
-  Modular Monolith, Multi-Tenancy)
-- ✅ Test infrastructure for Phase 3 cross-tenant isolation tests
-  (Testcontainers PostgreSql fixture ready)
+The project is developed through 11 structured phases, progressing from foundational architecture to authentication, authorization, messaging, caching, observability, comprehensive testing, and CI/CD.
 
-### Phase 2+ (Pending)
+📊 Project Status
 
-| Phase | What lands |
-|---|---|
-| 2 | Authentication (JWT, refresh token rotation, lockout, email verification) |
-| 3 | Multi-tenancy middleware, cross-tenant isolation tests |
-| 4 | Projects CRUD, members, filtering, sorting, pagination |
-| 5 | Tasks CRUD, assignment, status, labels, comments, attachments |
-| 6 | Domain events → Outbox → RabbitMQ, SignalR NotificationHub, background workers |
-| 7 | Redis caching, distributed rate limiting |
-| 8 | Audit log persistence (CRUD + auth-event auditing) |
-| 9 | OpenTelemetry tracing + metrics |
-| 10 | Comprehensive testing matrix (auth, authorization, tenant isolation, messaging) |
-| 11 | Full CI/CD pipeline (build, format, unit, integration, security, Docker) |
 
----
 
-## Architecture
 
-**Style:** Clean Architecture + Modular Monolith + CQRS +
-Domain/Application Events.
 
-**Dependency direction:**
-```
-NexaFlow.Api            ──▶ NexaFlow.Application
-                        ──▶ NexaFlow.Infrastructure (DI wiring only)
 
-NexaFlow.Application    ──▶ NexaFlow.Domain
+Current Phase
+Phase 1 — Foundation ✅
 
-NexaFlow.Infrastructure ──▶ NexaFlow.Application  (implements abstractions)
-                        ──▶ NexaFlow.Domain            (entity shape)
+Area	Status
+Clean Architecture	✅
+CQRS Foundation	✅
+Domain Model	✅
+Multi-Tenancy Foundation	✅
+Audit Stamping	✅
+Domain Events	✅
+EF Core Infrastructure	✅
+OpenAPI	✅
+Docker Support	✅
+Health Checks	✅
+ADR Documentation	✅
+Automated Tests	✅
 
-NexaFlow.Domain         ──✗─ (anything infrastructure)
-```
+Current test count: 37 passing tests
 
-See [docs/architecture.md](docs/architecture.md) for the full
-architecture documentation and [docs/decisions/](docs/decisions/) for
-ADRs.
+✨ Highlights
+What makes NexaFlow different?
+✅ Strict Clean Architecture with enforced dependency boundaries
 
----
+🏢 Multi-Tenant SaaS architecture with defense-in-depth isolation
 
-## Technology Stack
+🔀 CQRS + MediatR application design
 
-| Layer | Technology | Why |
-|---|---|---|
-| Runtime | .NET 10 LTS | Current stable supported LTS |
-| Web framework | ASP.NET Core | Built-in, framework primitive |
-| ORM | Entity Framework Core 10 | Mature, supports global query filters + migrations |
-| Database | PostgreSQL 16 | Open-source, native `uuid` + `timestamptz` + `JSONB`, container-friendly |
-| Postgres provider | Npgsql.EntityFrameworkCore.PostgreSQL 10 | Reference implementation |
-| CQRS | MediatR 12 | Industry-standard, supports pipeline behaviors |
-| Validation | FluentValidation 12 | Composable rules; auto-DI registration |
-| Password hashing | BCrypt.Net-Next 4 | Mature, well-audited adaptive hashing |
-| Logging | Serilog 9 | Structured logging with correlation scope |
-| Health checks | AspNetCore.HealthChecks.NpgSql | Postgres readiness probe |
-| API documentation | .NET 10 built-in OpenAPI + Scalar | Replaces Swashbuckle (compatibility issues) |
-| Testing | xUnit + FluentAssertions + Testcontainers | Real-infrastructure integration tests |
-| Containerization | Docker (alpine images) | Reproducible local + production |
+🧠 Domain-Driven Design with explicit business rules and invariants
 
-**Phase 1 deliberately does NOT include:** Redis, RabbitMQ, SignalR,
-OpenTelemetry, Quartz, NSwag — added in their respective phases per
-the master prompt's "no technology soup" rule.
+🛡️ Fail-closed tenant filtering using EF Core global query filters
 
----
+📋 Auditing and Domain Events built into the architecture
 
-## Security
+🐳 Docker-ready deployment
 
-- **Tenant isolation:** defense-in-depth at five layers (tenant
-  resolution, authorization, application-level validation, EF Core
-  global query filters, database constraints). See
-  [ADR-004](docs/decisions/ADR-004-multi-tenancy.md).
-- **Password storage:** BCrypt with work factor 12 (no custom crypto —
-  section 40).
-- **Error responses:** RFC 7807 Problem Details; no stack traces in
-  production; no resource enumeration (404 over 403 for cross-tenant
-  access — ADR-004 §3).
-- **Rate limiting:** per-IP fixed window (100 req/min default).
-- **HTTP security:** HSTS, HTTPS redirection in production.
-- **Secrets:** connection strings and token keys are read from
-  environment variables in production (Phase 11). The Phase 1
-  `appsettings.json` contains only placeholders.
+📊 Structured logging and health monitoring
 
----
+🧪 Layered automated testing strategy
 
-## Multi-Tenancy
+📨 Roadmap toward messaging and event-driven architecture
 
-Shared database, shared schema, row-level `OrganizationId`
-discriminator. See [ADR-004](docs/decisions/ADR-004-multi-tenancy.md).
+⚡ Planned Redis caching
 
-Tenant resolution is **transport-agnostic** — the Application layer
-depends on `ICurrentTenantService` + `ITenantResolutionStrategy`
-abstractions, not on the `X-Organization-Id` HTTP header. Phase 2 adds
-the HTTP middleware strategy that validates the candidate OrganizationId
-against the user's JWT membership claims.
+🔭 Planned OpenTelemetry observability
 
-Cross-tenant isolation tests land in Phase 3.
+🚀 Planned CI/CD and production deployment
 
----
+🎯 Project Goals
+NexaFlow is designed to demonstrate how a modern SaaS backend can be engineered with a strong focus on:
 
-## Authentication
+Maintainability
 
-Phase 2 will implement:
+Separation of concerns
 
-| Endpoint | Purpose |
-|---|---|
-| `POST /api/auth/register` | Create user (pending email verification) |
-| `POST /api/auth/login` | Authenticate, obtain access + refresh tokens |
-| `POST /api/auth/refresh` | Rotate refresh token |
-| `POST /api/auth/logout` | Revoke refresh token |
-| `POST /api/auth/forgot-password` | Initiate password reset |
-| `POST /api/auth/reset-password` | Complete password reset |
-| `POST /api/auth/verify-email` | Complete email verification |
-| `POST /api/auth/change-password` | Change password (authenticated) |
+Secure multi-tenancy
 
-Access token lifetime: 15 minutes. Refresh token lifetime: 7 days,
-single-use with rotation. Reuse of a revoked refresh token revokes the
-entire chain.
+Explicit business rules
 
-See [docs/authentication.md](docs/authentication.md) for full design.
+Scalable application boundaries
 
----
+Testability
 
-## Authorization
+Operational readiness
 
-Permission-based (not role-only — section 9). Phase 3 implements the
-permission matrix and the authorization handlers. Planned permissions:
+Architectural consistency
 
-| Resource | Permissions |
-|---|---|
-| Project | `Project.Read` `Project.Create` `Project.Update` `Project.Delete` |
-| Task | `Task.Read` `Task.Create` `Task.Update` `Task.Delete` |
-| Member | `Member.Read` `Member.Invite` `Member.Update` `Member.Remove` |
-| Organization | `Organization.Update` |
-| AuditLog | `AuditLog.Read` |
+The repository intentionally evolves through structured development phases, making architectural decisions explicit and traceable over time.
 
----
+🏗️ Architecture
+NexaFlow combines several complementary architectural patterns:
 
-## Messaging
+┌─────────────────────────────────────────────┐
+│              NexaFlow Backend               │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Clean Architecture                        │
+│          +                                  │
+│  Modular Monolith                          │
+│          +                                  │
+│  CQRS                                      │
+│          +                                  │
+│  Domain-Driven Design                      │
+│          +                                  │
+│  Event-Driven Evolution                    │
+│                                             │
+└─────────────────────────────────────────────┘
 
-Phase 6 will introduce RabbitMQ + the Outbox pattern for asynchronous
-event-driven workflows:
+Dependency Flow
+                 ┌─────────────────┐
+                 │       API       │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │   Application   │
+                 └────────┬────────┘
+                          │
+                          ▼
+                 ┌─────────────────┐
+                 │     Domain      │
+                 └─────────────────┘
+                          ▲
+                          │
+                 ┌────────┴────────┐
+                 │ Infrastructure  │
+                 └─────────────────┘
 
-```
+Architectural Principle
+Dependencies point inward.
+
+Business rules never depend on infrastructure.
+
+Application logic depends on abstractions.
+
+Infrastructure implements those abstractions.
+
+The API orchestrates application use cases.
+
+Domain logic remains independent of external technologies.
+
+📦 Solution Structure
+NexaFlow/
+│
+├── src/
+│   ├── NexaFlow.Api
+│   ├── NexaFlow.Application
+│   ├── NexaFlow.Domain
+│   └── NexaFlow.Infrastructure
+│
+├── tests/
+│   ├── NexaFlow.Domain.Tests
+│   ├── NexaFlow.Application.Tests
+│   ├── NexaFlow.Api.Tests
+│   └── NexaFlow.IntegrationTests
+│
+├── docs/
+│   ├── architecture.md
+│   ├── authentication.md
+│   ├── api.md
+│   ├── database.md
+│   └── decisions/
+│
+├── docker-compose.yml
+└── NexaFlow.slnx
+
+🛡️ Security
+Security is treated as a first-class architectural concern.
+
+Defense-in-Depth Tenant Isolation
+Tenant isolation is enforced across multiple layers:
+
 HTTP Request
-     ↓
-DB Transaction
-     ├── Update Task
-     └── Store Outbox Message
-              ↓
-        Background Publisher
-              ↓
-           RabbitMQ
-              ↓
-     Notification / Audit / Analytics consumers
-```
+     │
+     ▼
+┌─────────────────────┐
+│ Tenant Resolution   │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ Authorization       │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ Application         │
+│ Validation          │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ EF Core Global      │
+│ Query Filters       │
+└──────────┬──────────┘
+           ▼
+┌─────────────────────┐
+│ Database Constraints│
+└─────────────────────┘
 
-Consumers will be idempotent and tolerate duplicate delivery (at-least-once).
+This layered approach reduces the risk that a failure in a single layer results in cross-tenant data exposure.
 
----
+Additional Security Features
+🔐 BCrypt password hashing
 
-## Caching
+🛡️ RFC 7807 Problem Details
 
-Phase 7 will add Redis caching for read-side projections:
-- `organization:{id}`
-- `project:{id}`
-- `user:{id}`
+🔒 HTTPS enforcement
 
-Cache invalidation rules will be enforced; authorization data will
-never be cached in a way that can bypass security (section 23).
+🧱 HSTS
 
----
+🚦 Rate limiting
 
-## Background Processing
+🔑 Environment-based secrets
 
-Phase 6 will introduce a hosted `IHostedService` worker for:
-- Email delivery
-- Notification processing
-- Upcoming deadline notifications
-- Expired refresh-token cleanup
-- Outbox processing
+🚫 Resource enumeration protection
 
----
+🏢 Tenant-aware data access
 
-## Observability
+🏢 Multi-Tenancy
+NexaFlow uses a shared database / shared schema tenancy model.
 
-Phase 9 will add OpenTelemetry tracing + metrics, building on the
-Serilog structured logging already wired up in Phase 1. Health check
-endpoints `/health/live` and `/health/ready` are already live.
+┌─────────────────────────────┐
+│         Database            │
+│                             │
+│  ┌───────────────────────┐  │
+│  │       Organization    │  │
+│  │                       │  │
+│  │  ├── Projects         │  │
+│  │  ├── Tasks            │  │
+│  │  ├── Members          │  │
+│  │  └── Settings         │  │
+│  └───────────────────────┘  │
+│                             │
+└─────────────────────────────┘
 
----
+Every tenant is represented by an Organization.
 
-## Testing
+The primary tenant discriminator is:
 
-| Project | Type | Phase 1 status |
-|---|---|---|
-| `NexaFlow.Domain.Tests` | Pure unit tests for domain invariants | 31 tests passing |
-| `NexaFlow.Application.Tests` | DI + behavior smoke tests | 2 tests passing |
-| `NexaFlow.Api.Tests` | WebApplicationFactory smoke tests (health, OpenAPI, 404) | 3 tests passing |
-| `NexaFlow.IntegrationTests` | Real-Postgres integration tests via Testcontainers | Fixture wired up; tests added in Phase 3 |
+OrganizationId
 
-```bash
-dotnet test NexaFlow.slnx --nologo
-```
+Tenant context flows through the application and is ultimately enforced at the persistence layer using EF Core global query filters.
 
----
+Isolation Model
+Shared Database
+       │
+       ▼
+Shared Schema
+       │
+       ▼
+OrganizationId
+       │
+       ▼
+Row-Level Tenant Isolation
 
-## Docker
+🧩 Domain Model
+NexaFlow follows DDD principles by keeping business rules inside the domain rather than scattering them across controllers or infrastructure services.
 
-Production-oriented multi-stage Dockerfile — runs as a non-root user
-(`nexaflow`), uses `mcr.microsoft.com/dotnet/aspnet:10.0-alpine` for
-runtime, includes a `HEALTHCHECK` against `/health/live`.
+The domain layer is responsible for:
 
-```bash
-docker compose up -d          # API + Postgres
-curl http://localhost:8080/health/live
-curl http://localhost:8080/health/ready
-curl http://localhost:8080/openapi/v1.json
-```
+Entities
 
----
+Value Objects
 
-## CI/CD
+Aggregates
 
-Phase 11 will wire up the full GitHub Actions pipeline:
+Domain Events
 
-```
-Checkout → Restore → Build → Format/lint → Unit tests →
-Integration tests → Security/dependency checks → Docker build →
-Deploy (after required checks pass; secrets via GitHub Secrets)
-```
+Business Rules
 
-Phase 1 includes the CI skeleton at
-[.github/workflows/ci.yml](.github/workflows/ci.yml).
+Invariants
 
----
+This keeps the core business model independent from:
 
-## Running Locally
+ASP.NET Core
 
-### Option 1 — Docker Compose (recommended)
+EF Core
 
-```bash
-git clone <repo>
+PostgreSQL
+
+Messaging infrastructure
+
+External services
+
+🔀 CQRS
+The application layer follows a Command Query Responsibility Segregation approach.
+
+                    Application
+                         │
+            ┌────────────┴────────────┐
+            │                         │
+            ▼                         ▼
+       Commands                    Queries
+            │                         │
+            ▼                         ▼
+      State Changes              Read Models
+            │                         │
+            └────────────┬────────────┘
+                         ▼
+                    Domain Model
+
+MediatR provides the application-level request/handler pipeline while keeping use cases explicit and independently testable.
+
+🗺️ Roadmap
+NexaFlow is being developed through 11 planned phases.
+
+Phase	Feature	Status
+1	Foundation	✅ Completed
+2	Authentication	🔄 In Progress
+3	Authorization & Isolation Tests	⏳ Planned
+4	Projects Module	⏳ Planned
+5	Tasks Module	⏳ Planned
+6	Messaging & Notifications	⏳ Planned
+7	Redis & Caching	⏳ Planned
+8	Audit Logging	⏳ Planned
+9	Observability	⏳ Planned
+10	Comprehensive Testing	⏳ Planned
+11	CI/CD & Deployment	⏳ Planned
+
+📨 Messaging Architecture
+Planned for Phase 6
+
+NexaFlow will evolve toward reliable asynchronous messaging using the Outbox Pattern.
+
+HTTP Request
+     │
+     ▼
+┌──────────────────────┐
+│ Database Transaction │
+│                      │
+│ ├── Business Data    │
+│ └── Outbox Event     │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Background Worker    │
+└──────────┬───────────┘
+           │
+           ▼
+      ┌─────────┐
+      │ RabbitMQ│
+      └────┬────┘
+           │
+           ▼
+┌──────────────────────┐
+│ Event Consumers      │
+└──────────────────────┘
+
+The Outbox Pattern will allow database changes and outgoing events to participate in the same transaction, reducing the risk of publishing an event without the corresponding state change.
+
+📊 Observability
+Current
+Structured Serilog logging
+
+Correlation scope support
+
+Health endpoints
+
+Liveness checks
+
+Readiness checks
+
+Planned
+OpenTelemetry
+
+Distributed tracing
+
+Metrics
+
+Dashboards
+
+Alerting
+
+Cross-service correlation
+
+🧪 Testing Strategy
+NexaFlow uses a layered testing strategy:
+
+┌──────────────────────────┐
+│       Unit Tests         │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│   Application Tests      │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│        API Tests         │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│   Integration Tests      │
+└────────────┬─────────────┘
+             ▼
+┌──────────────────────────┐
+│   End-to-End Validation  │
+└──────────────────────────┘
+
+Test Projects
+Project	Purpose
+NexaFlow.Domain.Tests	Business rules and domain invariants
+NexaFlow.Application.Tests	Application pipeline and dependency validation
+NexaFlow.Api.Tests	API endpoint and smoke testing
+NexaFlow.IntegrationTests	Integration testing with PostgreSQL
+
+Run Tests
+dotnet test NexaFlow.slnx
+
+🐳 Getting Started
+Prerequisites
+.NET 10 SDK
+
+Docker
+
+Docker Compose
+
+PostgreSQL 16 (if running without Docker)
+
+Run with Docker
+git clone <repository-url>
+
 cd NexaFlow
+
 docker compose up -d
-```
 
-Verify:
-- `http://localhost:8080/health/live` → `{"status":"Healthy","kind":"live"}`
-- `http://localhost:8080/health/ready` → `{"status":"Healthy","kind":"ready"}`
-- `http://localhost:8080/openapi/v1.json` → OpenAPI document
-- `http://localhost:8080/scalar/v1` → Interactive API explorer
+Verify the Application
+Liveness
+curl http://localhost:8080/health/live
 
-### Option 2 — Local dotnet
+Readiness
+curl http://localhost:8080/health/ready
 
-Prerequisites:
-- .NET 10 SDK
-- PostgreSQL 16+ running on localhost:5432
+OpenAPI
+curl http://localhost:8080/openapi/v1.json
 
-```bash
-git clone <repo>
-cd NexaFlow
+📚 Documentation
+Document	Description
+architecture.md	System architecture
+authentication.md	Authentication design
+api.md	API documentation
+database.md	Database schema and persistence
+docs/decisions/	Architectural Decision Records
 
-# Apply migrations
-ASPNETCORE_ENVIRONMENT=Development \
-  dotnet ef database update \
-    --project src/NexaFlow.Infrastructure/NexaFlow.Infrastructure.csproj \
-    --startup-project src/NexaFlow.Api/NexaFlow.Api.csproj
+📜 Architectural Decisions
+NexaFlow documents important architectural decisions using ADRs (Architectural Decision Records).
 
-# Run
-dotnet run --project src/NexaFlow.Api/NexaFlow.Api.csproj
-```
+ADR	Decision
+ADR-001	PostgreSQL 16
+ADR-002	Clean Architecture
+ADR-003	Modular Monolith
+ADR-004	Multi-Tenant Architecture
+ADR-005	RabbitMQ + Outbox (upcoming)
+ADR-006	Redis Strategy (upcoming)
+ADR-007	Authorization Model (upcoming)
 
----
+The goal is to make architectural decisions explicit, reviewable, and traceable as the system evolves.
 
-## API Documentation
+🔮 Future Vision
+NexaFlow is designed to evolve from a foundational SaaS backend into a production-oriented platform supporting:
 
-See [docs/api.md](docs/api.md). Phase 1 exposes only health endpoints;
-Phase 2 adds the auth endpoints listed above.
+🔐 Authentication & Authorization
 
----
+📁 Project Management
 
-## Architecture Diagram
+✅ Task Management
 
-```
-                         ┌──────────────────────┐
-                         │      Frontend        │
-                         └──────────┬───────────┘
-                                    │
-                                    ▼
-                         ┌──────────────────────┐
-                         │    NexaFlow API      │
-                         │   ASP.NET Core 10    │
-                         └──────────┬───────────┘
-                                    │
-                         ┌──────────▼───────────┐
-                         │     Application      │
-                         │ CQRS / Use Cases     │
-                         └──────────┬───────────┘
-                                    │
-                         ┌──────────▼───────────┐
-                         │        Domain        │
-                         │ Business Rules       │
-                         │ Entities / Events    │
-                         └──────────────────────┘
+🔔 Real-Time Notifications
 
-                                    ▲
-                                    │
-                         ┌──────────┴───────────┐
-                         │    Infrastructure    │
-                         ├──────────────────────┤
-                         │ PostgreSQL (Phase 1) │
-                         │ Redis       (Phase 7) │
-                         │ RabbitMQ    (Phase 6) │
-                         │ Email       (Phase 2) │
-                         │ SignalR     (Phase 6) │
-                         │ OpenTelemetry(Phase 9)│
-                         └──────────────────────┘
-```
+📨 Event-Driven Architecture
 
----
+⚡ Redis Caching
 
-## Database Diagram
+🔭 OpenTelemetry Observability
 
-Phase 1 (entity relationships — see [docs/database.md](docs/database.md)
-for full schema):
+📋 Comprehensive Audit Trails
 
-```
-                   ┌──────────────┐
-                   │ organizations│
-                   │──────────────│
-                   │ id           │←────────────────┐
-                   │ name         │                 │
-                   │ slug (unique)│                 │
-                   │ owner_user_id│──┐               │
-                   └──────┬───────┘  │               │
-                          │ FK       │               │
-                          ▼          │ FK            │
-              ┌────────────────────────┐             │
-              │ organization_members    │             │
-              │─────────────────────────│             │
-              │ id                      │             │
-              │ organization_id (FK)────│─────────────┘
-              │ user_id (FK)───────────│──┐
-              │ role                    │  │
-              │ is_active               │  │
-              │ invitation_token_hash   │  │
-              └─────────────────────────┘  │
-                                            │
-              ┌────────────────────────┐    │
-              │ users                  │    │
-              │────────────────────────│    │
-              │ id                     │←───┘
-              │ email_normalized (uniq)│
-              │ password_hash          │
-              │ email_verified          │
-              │ lockout_end_utc        │
-              └────────────────────────┘
-```
+🧪 Expanded Integration & E2E Testing
 
----
+🚀 Automated CI/CD Pipelines
 
-## ADR Summary
+☁️ Production Deployment
 
-| ADR | Decision |
-|---|---|
-| [ADR-001](docs/decisions/ADR-001-postgresql.md) | Use PostgreSQL 16 as the primary relational database |
-| [ADR-002](docs/decisions/ADR-002-clean-architecture.md) | Clean Architecture with four projects (Domain, Application, Infrastructure, Api) |
-| [ADR-003](docs/decisions/ADR-003-modular-monolith.md) | Prefer Modular Monolith over Microservices |
-| [ADR-004](docs/decisions/ADR-004-multi-tenancy.md) | Shared database, shared schema, row-level OrganizationId |
+🧱 Technology Stack
+Technology	Purpose
+.NET 10	Backend platform
+ASP.NET Core	HTTP API
+C#	Primary language
+EF Core	ORM / persistence
+PostgreSQL 16	Relational database
+MediatR	CQRS request pipeline
+Serilog	Structured logging
+Docker	Containerization
+OpenAPI	API documentation
+RabbitMQ	Planned messaging infrastructure
+Redis	Planned caching infrastructure
+OpenTelemetry	Planned observability
 
-Future ADRs (created when their phase lands):
-- ADR-005: RabbitMQ + Outbox (Phase 6)
-- ADR-006: Redis caching strategy (Phase 7)
-- ADR-007: Permission-based authorization matrix (Phase 3)
+📈 Engineering Principles
+NexaFlow is built around a few core principles:
 
----
+Keep business rules close to the domain.
 
-## Future Improvements
+Make invalid states difficult to represent.
 
-- **Schema partitioning** for `audit_logs` and `outbox_messages` once
-  the row count warrants it (likely Phase 8+).
-- **Per-tenant rate limits** in addition to the per-IP limit.
-- **Database-per-tenant strategy** as a future alternative for
-  regulated industries — the multi-tenancy abstraction is designed so
-  this is a non-breaking extension (see ADR-004).
-- **Async API spec** alongside the OpenAPI doc for the SignalR hub
-  (Phase 6).
-- **OpenTelemetry traces exported** to Jaeger / Tempo (Phase 9).
+Fail closed when security boundaries are uncertain.
 
----
+Prefer explicit architectural boundaries over implicit conventions.
 
-## License
+Make infrastructure replaceable through abstractions.
 
-Proprietary — portfolio demonstration project.
-#   S a a s  
- 
+Test behavior, not implementation details.
+
+Document important architectural decisions.
+
+📄 License
+Proprietary Portfolio Project
+
+This project is developed for portfolio and educational demonstrationexaFlow is an evolving demonstration of how a modern SaaS backend can be designed, tested, secured, documented, and progressively extended without sacrificing architectural integrity purposes and showcases modern backend engineering practices using the .NET ecosystem and production-oriented architectural patterns.
+
+⭐ About NexaFlow
+NexaFlow is an evolving demonstration of how a modern SaaS backend can be designed, tested, secured, documented, and progressively extended without sacrificing architectural integrity.
+
+Built with .NET. Designed with architecture. Engineered for evolution.
