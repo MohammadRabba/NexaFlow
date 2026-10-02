@@ -1,104 +1,90 @@
-🚀 NexaFlow
-Multi-Tenant Project Management SaaS
-NexaFlow is a production-grade .NET 10 backend demonstrating modern enterprise application architecture through:
+# 🚀 NexaFlow
 
-Clean Architecture
+## Multi-Tenant Project Management SaaS
 
-Modular Monolith
+NexaFlow is a production-grade **.NET 10 backend** demonstrating modern enterprise application architecture through:
 
-CQRS
+- Clean Architecture
+- Modular Monolith
+- CQRS
+- Domain-Driven Design (DDD)
+- Defense-in-Depth Multi-Tenancy
+- Domain Events
+- Automated Testing
+- Production-oriented Infrastructure
 
-Domain-Driven Design (DDD)
+> NexaFlow is **not a CRUD tutorial**.
+>
+> It is a portfolio-quality system designed to demonstrate how a maintainable, secure, and scalable SaaS backend can evolve from a solid architectural foundation toward enterprise-grade infrastructure.
 
-Defense-in-depth Multi-Tenancy
+The project is developed through **11 structured phases**, progressing from foundational architecture to authentication, authorization, messaging, caching, observability, comprehensive testing, and CI/CD.
 
-Domain Events
+---
 
-Automated Testing
+## 📊 Project Status
 
-Production-oriented Infrastructure
+### Current Phase
 
-NexaFlow is not a CRUD tutorial.
-It is a portfolio-quality system designed to demonstrate how a maintainable, secure, and scalable SaaS backend can evolve from a solid architectural foundation toward enterprise-grade infrastructure.
+**Phase 1 — Foundation** ✅
 
-The project is developed through 11 structured phases, progressing from foundational architecture to authentication, authorization, messaging, caching, observability, comprehensive testing, and CI/CD.
+| Area | Status |
+|---|---|
+| Clean Architecture | ✅ |
+| CQRS Foundation | ✅ |
+| Domain Model | ✅ |
+| Multi-Tenancy Foundation | ✅ |
+| Audit Stamping | ✅ |
+| Domain Events | ✅ |
+| EF Core Infrastructure | ✅ |
+| OpenAPI | ✅ |
+| Docker Support | ✅ |
+| Health Checks | ✅ |
+| ADR Documentation | ✅ |
+| Automated Tests | ✅ |
 
-📊 Project Status
+**Current test count: 37 passing tests**
 
+---
 
+## ✨ Highlights
 
+### What makes NexaFlow different?
 
+- ✅ Strict Clean Architecture with enforced dependency boundaries
+- 🏢 Multi-Tenant SaaS architecture with defense-in-depth isolation
+- 🔀 CQRS + MediatR application design
+- 🧠 Domain-Driven Design with explicit business rules and invariants
+- 🛡️ Fail-closed tenant filtering using EF Core global query filters
+- 📋 Auditing and Domain Events built into the architecture
+- 🐳 Docker-ready deployment
+- 📊 Structured logging and health monitoring
+- 🧪 Layered automated testing strategy
+- 📨 Roadmap toward messaging and event-driven architecture
+- ⚡ Planned Redis caching
+- 🔭 Planned OpenTelemetry observability
+- 🚀 Planned CI/CD and production deployment
 
+---
 
-Current Phase
-Phase 1 — Foundation ✅
+## 🎯 Project Goals
 
-Area	Status
-Clean Architecture	✅
-CQRS Foundation	✅
-Domain Model	✅
-Multi-Tenancy Foundation	✅
-Audit Stamping	✅
-Domain Events	✅
-EF Core Infrastructure	✅
-OpenAPI	✅
-Docker Support	✅
-Health Checks	✅
-ADR Documentation	✅
-Automated Tests	✅
-
-Current test count: 37 passing tests
-
-✨ Highlights
-What makes NexaFlow different?
-✅ Strict Clean Architecture with enforced dependency boundaries
-
-🏢 Multi-Tenant SaaS architecture with defense-in-depth isolation
-
-🔀 CQRS + MediatR application design
-
-🧠 Domain-Driven Design with explicit business rules and invariants
-
-🛡️ Fail-closed tenant filtering using EF Core global query filters
-
-📋 Auditing and Domain Events built into the architecture
-
-🐳 Docker-ready deployment
-
-📊 Structured logging and health monitoring
-
-🧪 Layered automated testing strategy
-
-📨 Roadmap toward messaging and event-driven architecture
-
-⚡ Planned Redis caching
-
-🔭 Planned OpenTelemetry observability
-
-🚀 Planned CI/CD and production deployment
-
-🎯 Project Goals
 NexaFlow is designed to demonstrate how a modern SaaS backend can be engineered with a strong focus on:
 
-Maintainability
-
-Separation of concerns
-
-Secure multi-tenancy
-
-Explicit business rules
-
-Scalable application boundaries
-
-Testability
-
-Operational readiness
-
-Architectural consistency
+- Maintainability
+- Separation of concerns
+- Secure multi-tenancy
+- Explicit business rules
+- Scalable application boundaries
+- Testability
+- Operational readiness
+- Architectural consistency
 
 The repository intentionally evolves through structured development phases, making architectural decisions explicit and traceable over time.
 
-🏗️ Architecture
+---
+
+# 🏗️ Architecture
+
 NexaFlow combines several complementary architectural patterns:
 
 ┌─────────────────────────────────────────────┐
@@ -116,295 +102,6 @@ NexaFlow combines several complementary architectural patterns:
 │  Event-Driven Evolution                    │
 │                                             │
 └─────────────────────────────────────────────┘
-
-Dependency Flow
-                 ┌─────────────────┐
-                 │       API       │
-                 └────────┬────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │   Application   │
-                 └────────┬────────┘
-                          │
-                          ▼
-                 ┌─────────────────┐
-                 │     Domain      │
-                 └─────────────────┘
-                          ▲
-                          │
-                 ┌────────┴────────┐
-                 │ Infrastructure  │
-                 └─────────────────┘
-
-Architectural Principle
-Dependencies point inward.
-
-Business rules never depend on infrastructure.
-
-Application logic depends on abstractions.
-
-Infrastructure implements those abstractions.
-
-The API orchestrates application use cases.
-
-Domain logic remains independent of external technologies.
-
-📦 Solution Structure
-NexaFlow/
-│
-├── src/
-│   ├── NexaFlow.Api
-│   ├── NexaFlow.Application
-│   ├── NexaFlow.Domain
-│   └── NexaFlow.Infrastructure
-│
-├── tests/
-│   ├── NexaFlow.Domain.Tests
-│   ├── NexaFlow.Application.Tests
-│   ├── NexaFlow.Api.Tests
-│   └── NexaFlow.IntegrationTests
-│
-├── docs/
-│   ├── architecture.md
-│   ├── authentication.md
-│   ├── api.md
-│   ├── database.md
-│   └── decisions/
-│
-├── docker-compose.yml
-└── NexaFlow.slnx
-
-🛡️ Security
-Security is treated as a first-class architectural concern.
-
-Defense-in-Depth Tenant Isolation
-Tenant isolation is enforced across multiple layers:
-
-HTTP Request
-     │
-     ▼
-┌─────────────────────┐
-│ Tenant Resolution   │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Authorization       │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Application         │
-│ Validation          │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ EF Core Global      │
-│ Query Filters       │
-└──────────┬──────────┘
-           ▼
-┌─────────────────────┐
-│ Database Constraints│
-└─────────────────────┘
-
-This layered approach reduces the risk that a failure in a single layer results in cross-tenant data exposure.
-
-Additional Security Features
-🔐 BCrypt password hashing
-
-🛡️ RFC 7807 Problem Details
-
-🔒 HTTPS enforcement
-
-🧱 HSTS
-
-🚦 Rate limiting
-
-🔑 Environment-based secrets
-
-🚫 Resource enumeration protection
-
-🏢 Tenant-aware data access
-
-🏢 Multi-Tenancy
-NexaFlow uses a shared database / shared schema tenancy model.
-
-┌─────────────────────────────┐
-│         Database            │
-│                             │
-│  ┌───────────────────────┐  │
-│  │       Organization    │  │
-│  │                       │  │
-│  │  ├── Projects         │  │
-│  │  ├── Tasks            │  │
-│  │  ├── Members          │  │
-│  │  └── Settings         │  │
-│  └───────────────────────┘  │
-│                             │
-└─────────────────────────────┘
-
-Every tenant is represented by an Organization.
-
-The primary tenant discriminator is:
-
-OrganizationId
-
-Tenant context flows through the application and is ultimately enforced at the persistence layer using EF Core global query filters.
-
-Isolation Model
-Shared Database
-       │
-       ▼
-Shared Schema
-       │
-       ▼
-OrganizationId
-       │
-       ▼
-Row-Level Tenant Isolation
-
-🧩 Domain Model
-NexaFlow follows DDD principles by keeping business rules inside the domain rather than scattering them across controllers or infrastructure services.
-
-The domain layer is responsible for:
-
-Entities
-
-Value Objects
-
-Aggregates
-
-Domain Events
-
-Business Rules
-
-Invariants
-
-This keeps the core business model independent from:
-
-ASP.NET Core
-
-EF Core
-
-PostgreSQL
-
-Messaging infrastructure
-
-External services
-
-🔀 CQRS
-The application layer follows a Command Query Responsibility Segregation approach.
-
-                    Application
-                         │
-            ┌────────────┴────────────┐
-            │                         │
-            ▼                         ▼
-       Commands                    Queries
-            │                         │
-            ▼                         ▼
-      State Changes              Read Models
-            │                         │
-            └────────────┬────────────┘
-                         ▼
-                    Domain Model
-
-MediatR provides the application-level request/handler pipeline while keeping use cases explicit and independently testable.
-
-🗺️ Roadmap
-NexaFlow is being developed through 11 planned phases.
-
-Phase	Feature	Status
-1	Foundation	✅ Completed
-2	Authentication	🔄 In Progress
-3	Authorization & Isolation Tests	⏳ Planned
-4	Projects Module	⏳ Planned
-5	Tasks Module	⏳ Planned
-6	Messaging & Notifications	⏳ Planned
-7	Redis & Caching	⏳ Planned
-8	Audit Logging	⏳ Planned
-9	Observability	⏳ Planned
-10	Comprehensive Testing	⏳ Planned
-11	CI/CD & Deployment	⏳ Planned
-
-📨 Messaging Architecture
-Planned for Phase 6
-
-NexaFlow will evolve toward reliable asynchronous messaging using the Outbox Pattern.
-
-HTTP Request
-     │
-     ▼
-┌──────────────────────┐
-│ Database Transaction │
-│                      │
-│ ├── Business Data    │
-│ └── Outbox Event     │
-└──────────┬───────────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Background Worker    │
-└──────────┬───────────┘
-           │
-           ▼
-      ┌─────────┐
-      │ RabbitMQ│
-      └────┬────┘
-           │
-           ▼
-┌──────────────────────┐
-│ Event Consumers      │
-└──────────────────────┘
-
-The Outbox Pattern will allow database changes and outgoing events to participate in the same transaction, reducing the risk of publishing an event without the corresponding state change.
-
-📊 Observability
-Current
-Structured Serilog logging
-
-Correlation scope support
-
-Health endpoints
-
-Liveness checks
-
-Readiness checks
-
-Planned
-OpenTelemetry
-
-Distributed tracing
-
-Metrics
-
-Dashboards
-
-Alerting
-
-Cross-service correlation
-
-🧪 Testing Strategy
-NexaFlow uses a layered testing strategy:
-
-┌──────────────────────────┐
-│       Unit Tests         │
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│   Application Tests      │
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│        API Tests         │
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│   Integration Tests      │
-└────────────┬─────────────┘
-             ▼
-┌──────────────────────────┐
-│   End-to-End Validation  │
-└──────────────────────────┘
 
 Test Projects
 Project	Purpose
@@ -525,7 +222,7 @@ Document important architectural decisions.
 📄 License
 Proprietary Portfolio Project
 
-This project is developed for portfolio and educational demonstrationexaFlow is an evolving demonstration of how a modern SaaS backend can be designed, tested, secured, documented, and progressively extended without sacrificing architectural integrity purposes and showcases modern backend engineering practices using the .NET ecosystem and production-oriented architectural patterns.
+This project is developed for portfolio and educational demonstration purposes and showcases modern backend engineering practices using the .NET ecosystem and production-oriented architectural patterns.
 
 ⭐ About NexaFlow
 NexaFlow is an evolving demonstration of how a modern SaaS backend can be designed, tested, secured, documented, and progressively extended without sacrificing architectural integrity.
